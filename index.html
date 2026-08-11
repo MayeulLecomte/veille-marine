@@ -1387,28 +1387,40 @@ async function pointInterrogé(lat, lon){
       `<br><button class="popup-aller" data-lat="${lat}" data-lon="${lon}">Aller ici</button>`);
 }
 
-/* « Aller ici » : trace la route par la mer et donne la durée. */
-async function allerVers(lat, lon, nom){
-  const pos = positionActuelle();
-  if (!pos) return;
+/* « Aller ici » : trace la route par la mer et donne la durée.
+   On écrit dans la bulle qui contient le bouton, quelle qu'elle
+   soit — celle d'un mouillage comme celle d'un point touché. */
+async function allerVers(lat, lon, nom, conteneur){
+  const ecrire = html => { if (conteneur) conteneur.innerHTML = html; };
 
-  const bulle = bulleCarte;
-  if (bulle && bulle.isOpen()) bulle.setHTML("<b>Calcul de la route…</b>");
+  const pos = positionActuelle();
+  if (!pos){
+    ecrire("<b>Position inconnue</b><br><span class=\"mini\">Active la géolocalisation pour calculer un trajet.</span>");
+    return;
+  }
+
+  ecrire('<b>Calcul de la route…</b><br><span class="mini">Récupération du littoral, puis recherche du passage par la mer.</span>');
 
   try {
     const ch = await cheminNavigable(pos.lat, pos.lng, lat, lon);
     tracerRoute(ch.points);
     const kn = vitesseBateau();
 
-    if (bulle && bulle.isOpen())
-      bulle.setHTML(`<b>${nom || "Ce point"}</b><br>` +
-        `${ch.nm.toFixed(1).replace(".", ",")} milles par la mer<br>` +
-        `${duree(ch.nm, kn)} à ${kn.toFixed(1).replace(".", ",")} nœuds` +
-        `<br><span class="mini">Estimation de distance, pas une route à suivre.</span>`);
+    ecrire(`<b>${nom || "Ce point"}</b><br>` +
+      `${ch.nm.toFixed(1).replace(".", ",")} milles par la mer<br>` +
+      `${duree(ch.nm, kn)} à ${kn.toFixed(1).replace(".", ",")} nœuds` +
+      `<br><span class="mini">Estimation de distance, pas une route à suivre.</span>`);
 
   } catch (e){
-    if (bulle && bulle.isOpen())
-      bulle.setHTML(`<b>Route impossible</b><br><span class="mini">${e.message}</span>`);
+    // À défaut de contournement, on donne au moins la ligne droite.
+    const nm  = distanceNM(pos.lat, pos.lng, lat, lon);
+    const cap = capVers(pos.lat, pos.lng, lat, lon);
+    const kn  = vitesseBateau();
+    ecrire(`<b>${nom || "Ce point"}</b><br>` +
+      `${nm.toFixed(1).replace(".", ",")} milles en ligne droite, cap ${aire(cap)}<br>` +
+      `${duree(nm, kn)} à ${kn.toFixed(1).replace(".", ",")} nœuds` +
+      `<br><span class="mini">Le contournement des terres n'a pas pu être calculé ` +
+      `(${e.message}) : la distance réelle sera plus longue.</span>`);
   }
 }
 
@@ -1416,50 +1428,10 @@ async function allerVers(lat, lon, nom){
 document.addEventListener("click", e => {
   const b = e.target.closest(".popup-aller");
   if (!b) return;
-  allerVers(parseFloat(b.dataset.lat), parseFloat(b.dataset.lon), b.dataset.nom);
+  e.preventDefault();
+  allerVers(parseFloat(b.dataset.lat), parseFloat(b.dataset.lon), b.dataset.nom,
+            b.closest(".maplibregl-popup-content"));
 });
-
-/* Une seule porte d'entrée vers EMODnet.
-   Valeur négative : sous le niveau de la mer. Positive : à terre. */
-async function sonderPoint(lat, lon){
-  const r = await fetch(
-    `https://rest.emodnet-bathymetry.eu/depth/point?geom=POINT(${lon.toFixed(5)} ${lat.toFixed(5)})`
-  );
-  if (!r.ok) throw new Error("indisponible");
-  const d = await r.json();
-  const v = d.smoothed ?? d.avg;
-  if (v === null || v === undefined) throw new Error("hors couverture");
-  return v;
-}
-
-/* La sonde suit le centre de la carte. On attend que le
-   mouvement s'arrête pour ne pas noyer le service de requêtes. */
-let minuterieSonde = null;
-
-function suivreSonde(){
-  clearTimeout(minuterieSonde);
-  const val = $("sonde-val");
-  val.className = "sonde-val attente";
-  val.textContent = "mesure…";
-
-  minuterieSonde = setTimeout(async () => {
-    const c = maCarte.getCenter();
-    try {
-      const v = await sonderPoint(c.lat, c.lng);
-      const chiffre = Math.abs(v).toFixed(1).replace(".", ",");
-      if (v < 0){
-        val.className = "sonde-val sous-eau";
-        val.textContent = chiffre + " m";
-      } else {
-        val.className = "sonde-val hors-eau";
-        val.textContent = chiffre + " m à terre";
-      }
-    } catch (e){
-      val.className = "sonde-val attente";
-      val.textContent = "hors couverture";
-    }
-  }, 700);
-}
 
 // Exécute une action une fois le fond de carte prêt.
 function quandPrete(action){
