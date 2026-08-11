@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="color-scheme" content="light only">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>mynav — fabriquer la base</title>
+<style>
+:root{color-scheme:light}
+
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  font-family:ui-rounded,"SF Pro Rounded",-apple-system,BlinkMacSystemFont,sans-serif;
+  color:#0A3652;min-height:100vh;padding:22px 18px 60px;max-width:620px;margin:0 auto;
+  background:linear-gradient(172deg,#F7FCFF 0%,#E3F3FE 28%,#C9E7FC 64%,#B4DCF9 100%);
+  background-attachment:fixed;line-height:1.5;
+}
+h1{font-size:22px;font-weight:700;margin-bottom:6px}
+.sous{font-size:13.5px;color:#4B7EA2;margin-bottom:22px}
+.carte{
+  background:rgba(255,255,255,.55);
+  -webkit-backdrop-filter:blur(24px) saturate(180%);backdrop-filter:blur(24px) saturate(180%);
+  border:1px solid rgba(255,255,255,.85);border-radius:24px;
+  box-shadow:0 8px 28px rgba(16,74,116,.13);padding:20px;margin-bottom:14px;
+}
+p{font-size:14px;margin-bottom:12px}
+ol{font-size:14px;margin:0 0 4px 20px}
+ol li{margin-bottom:7px}
+code{font-family:ui-monospace,Menlo,monospace;font-size:12.5px;background:rgba(255,255,255,.7);padding:2px 6px;border-radius:6px}
+button{
+  font:inherit;font-size:15px;font-weight:600;background:#0A84FF;color:#fff;
+  border:none;padding:13px 20px;border-radius:14px;cursor:pointer;width:100%;
+  box-shadow:0 2px 8px rgba(10,132,255,.3);
+}
+button:disabled{opacity:.55}
+#etat{font-size:13.5px;color:#4B7EA2;margin-top:14px;min-height:20px}
+#liens{margin-top:14px}
+#liens p{margin:8px 0}
+a{color:#0A84FF;font-weight:600;text-underline-offset:3px}
+.retour{display:inline-block;margin-top:20px;font-size:14px}
+</style>
+</head>
+<body>
+
+<h1>Fabriquer la base de mouillages</h1>
+<p class="sous">Outil de maintenance — à lancer une fois, puis à chaque fois que
+tu veux rafraîchir les données OpenStreetMap.</p>
+
+<div class="carte">
+  <p>Cet outil interroge OpenStreetMap sur les cinq zones couvertes et produit
+  <code>mouillages.json</code>. Une fois ce fichier déposé dans le dépôt à côté de
+  <code>index.html</code>, l'application n'a plus besoin d'interroger Overpass :
+  les points s'affichent instantanément.</p>
+  <button id="btn">Fabriquer la base des mouillages</button>
+  <div id="etat"></div>
+  <div id="liens"></div>
+</div>
+
+<div class="carte">
+  <p><b>Les services à terre.</b> Shipchandlers, carburant, eau, laverie, douches,
+  commerces et restaurants — filtrés pour ne garder que ceux situés à moins d'un
+  kilomètre d'un port ou d'un mouillage connu. Produit
+  <code>services.json</code>, à déposer à côté de <code>mouillages.json</code>.</p>
+  <p><b>Fabrique d'abord la base des mouillages ci-dessus</b> : le filtrage s'appuie dessus.</p>
+  <button id="btn-services">Fabriquer les services</button>
+  <div id="etat-services"></div>
+  <div id="liens-services"></div>
+</div>
+
+<div class="carte">
+  <p><b>Ensuite :</b></p>
+  <ol>
+    <li>Touche le lien de téléchargement, ou « Ouvrir dans un onglet » puis Partager → Enregistrer dans Fichiers</li>
+    <li>Sur GitHub, ouvre le dépôt <code>veille-marine</code></li>
+    <li>Add file → Upload files → choisis <code>mouillages.json</code></li>
+    <li>Commit changes, puis attends une minute</li>
+  </ol>
+</div>
+
+<a class="retour" href="index.html">← Retour à l'application</a>
+
+<script>
+// Zones couvertes : sud, ouest, nord, est
+const EMPRISES = [
+  {nom:"Mer d'Iroise",    b:[48.00, -5.30, 48.70, -4.20]},
+  {nom:"Bretagne sud",    b:[47.20, -3.60, 48.00, -2.00]},
+  {nom:"Loire et Vendée", b:[46.20, -2.60, 47.20, -1.00]},
+  {nom:"Majorque",        b:[39.10,  2.20, 40.00,  3.60]},
+  {nom:"Golfe du Lion",   b:[42.90,  2.90, 43.70,  4.30]}
+];
+
+const MIROIRS = [
+  "https://overpass-api.de/api/interpreter",
+  "https://overpass.kumi.systems/api/interpreter",
+  "https://overpass.private.coffee/api/interpreter"
+];
+
+const $ = id => document.getElementById(id);
+const patiente = ms => new Promise(r => setTimeout(r, ms));
+
+async function overpass(requete, signaler){
+  let dernier = "";
+  for (let tour = 0; tour < 2; tour++){
+    for (const url of MIROIRS){
+      try {
+        const r = await fetch(url, {
+          method:"POST",
+          body:"data=" + encodeURIComponent(requete),
+          headers:{"Content-Type":"application/x-www-form-urlencoded"}
+        });
+        if (r.ok) return await r.json();
+        dernier = r.status;
+        if (r.status === 429 || r.status === 504){
+          if (signaler) signaler(`serveur occupé (${r.status}), j'essaie ailleurs…`);
+          await patiente(2500);
+          continue;
+        }
+        throw new Error("réponse " + r.status);
+      } catch (e){ dernier = dernier || e.message; }
+    }
+    if (signaler) signaler("tous les serveurs sont occupés, j'attends 15 secondes…");
+    await patiente(15000);
+  }
+  throw new Error("Overpass saturé (" + dernier + ")");
+}
+
+async function construire(){
+  const btn = $("btn"), etat = $("etat");
+  btn.disabled = true;
+  $("liens").innerHTML = "";
+
+  const tout = new Map();
+
+  try {
+    for (const z of EMPRISES){
+      btn.textContent = z.nom + "…";
+      const bbox = z.b.join(",");
+      const requete = `[out:json][timeout:180];
+        (
+          nwr["natural"="bay"](${bbox});
+          nwr["leisure"="marina"](${bbox});
+          nwr["seamark:type"~"anchorage|anchor_berth|mooring|harbour"](${bbox});
+        );
+        out center tags;`;
+
+      const d = await overpass(requete, m => etat.textContent = z.nom + " : " + m);
+
+      (d.elements || []).forEach(el => {
+        const lat = el.lat ?? el.center?.lat;
+        const lon = el.lon ?? el.center?.lon;
+        if (lat === undefined || lon === undefined) return;
+
+        const tags = {};
+        ["name","natural","leisure","seamark:type",
+         "seamark:bottom:nature","seamark:anchorage:category"]
+          .forEach(k => { if (el.tags?.[k]) tags[k] = el.tags[k]; });
+
+        tout.set(el.type + el.id, {lat:+lat.toFixed(5), lon:+lon.toFixed(5), tags});
+      });
+
+      etat.textContent = tout.size + " points collectés…";
+      await patiente(3000);
+    }
+
+    const fichier = JSON.stringify({
+      genere: new Date().toISOString().slice(0, 10),
+      source: "OpenStreetMap via Overpass, licence ODbL",
+      elements: [...tout.values()]
+    });
+
+    const poids = (fichier.length / 1024).toFixed(0);
+    const url = URL.createObjectURL(new Blob([fichier], {type:"application/json"}));
+
+    $("liens").innerHTML =
+      `<p><b>${tout.size} points, ${poids} Ko.</b></p>
+       <p><a href="${url}" download="mouillages.json">Télécharger mouillages.json</a></p>
+       <p><a href="${url}" target="_blank" rel="noopener">Ouvrir dans un onglet</a>
+          — puis Partager, « Enregistrer dans Fichiers ». À utiliser si le téléchargement ne fait rien.</p>`;
+    etat.textContent = "Terminé.";
+
+  } catch (e){
+    etat.textContent = "Échec : " + e.message + ". Réessaie dans quelques minutes.";
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Fabriquer la base";
+  }
+}
+
+$("btn").onclick = construire;
+
+/* ==========================================================
+   LES SERVICES À TERRE
+   ----------------------------------------------------------
+   On récupère les catégories utiles à un plaisancier, puis on
+   ne garde que ce qui est à moins d'un kilomètre d'un point de
+   la base : un restaurant à vingt kilomètres dans les terres
+   n'intéresse personne.
+   ========================================================== */
+
+const CATEGORIES = `
+  nwr["shop"="chandlery"](BBOX);
+  nwr["shop"="boat"](BBOX);
+  nwr["amenity"="fuel"](BBOX);
+  nwr["waterway"="fuel"](BBOX);
+  nwr["amenity"="drinking_water"](BBOX);
+  nwr["shop"="laundry"](BBOX);
+  nwr["shop"="dry_cleaning"](BBOX);
+  nwr["amenity"="shower"](BBOX);
+  nwr["shop"="supermarket"](BBOX);
+  nwr["shop"="convenience"](BBOX);
+  nwr["shop"="bakery"](BBOX);
+  nwr["amenity"="restaurant"](BBOX);
+  nwr["amenity"="cafe"](BBOX);
+  nwr["amenity"="bar"](BBOX);
+`;
+
+function genre(t){
+  if (t.shop === "chandlery" || t.shop === "boat") return "shipchandler";
+  if (t.amenity === "fuel" || t.waterway === "fuel") return "carburant";
+  if (t.amenity === "drinking_water") return "eau";
+  if (t.shop === "laundry" || t.shop === "dry_cleaning") return "laverie";
+  if (t.amenity === "shower") return "douches";
+  if (t.shop === "supermarket" || t.shop === "convenience") return "commerce";
+  if (t.shop === "bakery") return "boulangerie";
+  if (t.amenity === "restaurant") return "restaurant";
+  if (t.amenity === "cafe") return "café";
+  if (t.amenity === "bar") return "bar";
+  return null;
+}
+
+// Distance en mètres, formule simplifiée suffisante à cette échelle
+function metres(lat1, lon1, lat2, lon2){
+  const x = (lon2 - lon1) * 111320 * Math.cos(lat1 * Math.PI / 180);
+  const y = (lat2 - lat1) * 110540;
+  return Math.hypot(x, y);
+}
+
+async function construireServices(){
+  const btn = $("btn-services"), etat = $("etat-services");
+  btn.disabled = true;
+  $("liens-services").innerHTML = "";
+
+  // On a besoin de la base des mouillages pour filtrer
+  let ancres = [];
+  try {
+    const r = await fetch("mouillages.json", {cache:"no-cache"});
+    if (r.ok){ const d = await r.json(); ancres = d.elements || []; }
+  } catch (e){}
+
+  if (!ancres.length){
+    etat.textContent = "Aucun mouillages.json trouvé à côté de cette page. Fabrique-le d'abord et dépose-le dans le dépôt.";
+    btn.disabled = false;
+    return;
+  }
+
+  const tout = new Map();
+
+  try {
+    for (const z of EMPRISES){
+      btn.textContent = z.nom + "…";
+      const bbox = z.b.join(",");
+      const requete = `[out:json][timeout:180];
+        (${CATEGORIES.replaceAll("BBOX", bbox)});
+        out center tags;`;
+
+      const d = await overpass(requete, m => etat.textContent = z.nom + " : " + m);
+
+      (d.elements || []).forEach(el => {
+        const lat = el.lat ?? el.center?.lat;
+        const lon = el.lon ?? el.center?.lon;
+        if (lat === undefined || lon === undefined) return;
+
+        const g = genre(el.tags || {});
+        if (!g) return;
+
+        // Filtrage : à moins d'un kilomètre d'un point de la base
+        const proche = ancres.some(a => metres(lat, lon, a.lat, a.lon) < 1000);
+        if (!proche) return;
+
+        // On garde tout ce qui aide à décider : cuisine, horaires,
+        // téléphone, site. OpenStreetMap ne les a pas toujours.
+        const t = el.tags || {};
+        const fiche = {
+          lat: +lat.toFixed(5),
+          lon: +lon.toFixed(5),
+          genre: g,
+          nom: t.name || null
+        };
+        if (t.cuisine)         fiche.cuisine = t.cuisine;
+        if (t.opening_hours)   fiche.horaires = t.opening_hours;
+        if (t.phone || t["contact:phone"]) fiche.tel = t.phone || t["contact:phone"];
+        if (t.website || t["contact:website"]) fiche.site = t.website || t["contact:website"];
+        if (t["diet:vegetarian"]) fiche.vegetarien = t["diet:vegetarian"];
+        if (t.outdoor_seating)  fiche.terrasse = t.outdoor_seating;
+
+        tout.set(el.type + el.id, fiche);
+      });
+
+      etat.textContent = tout.size + " services retenus…";
+      await patiente(3000);
+    }
+
+    const fichier = JSON.stringify({
+      genere: new Date().toISOString().slice(0, 10),
+      source: "OpenStreetMap via Overpass, licence ODbL",
+      elements: [...tout.values()]
+    });
+
+    const poids = (fichier.length / 1024).toFixed(0);
+    const url = URL.createObjectURL(new Blob([fichier], {type:"application/json"}));
+
+    $("liens-services").innerHTML =
+      `<p><b>${tout.size} services, ${poids} Ko.</b></p>
+       <p><a href="${url}" download="services.json">Télécharger services.json</a></p>
+       <p><a href="${url}" target="_blank" rel="noopener">Ouvrir dans un onglet</a>
+          — puis Partager, « Enregistrer dans Fichiers ».</p>`;
+    etat.textContent = "Terminé.";
+
+  } catch (e){
+    etat.textContent = "Échec : " + e.message + ". Réessaie dans quelques minutes.";
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Fabriquer les services";
+  }
+}
+
+$("btn-services").onclick = construireServices;
+</script>
+</body>
+</html>
