@@ -4206,6 +4206,29 @@ function poserVerdict(titre, detail, rang){
    L'APERÇU DU MOUILLAGE
    ========================================================== */
 
+/* « Voir sur la carte » n'ouvrait que la carte : elle restait
+   centrée sur le bateau, et l'abri conseillé pouvait se trouver
+   hors de l'écran. On l'y emmène, et on ouvre son étiquette. */
+function montrerSurCarte(p){
+  voir("carte");
+  if (!maCarte) return;
+
+  // voir() recadre la carte 60 ms plus tard : on passe après lui.
+  setTimeout(() => {
+    maCarte.resize();
+    maCarte.jumpTo({
+      center:[p.lon, p.lat],
+      zoom: Math.max(maCarte.getZoom(), 13.5)
+    });
+
+    const m = marqueursNote.find(m => {
+      const l = m.getLngLat();
+      return Math.abs(l.lng - p.lon) < 1e-6 && Math.abs(l.lat - p.lat) < 1e-6;
+    });
+    if (m && !m.getPopup().isOpen()) m.togglePopup();
+  }, 90);
+}
+
 async function apercuMouillage(){
   const btn = $("btn-mouillage");
   btn.textContent = "Calcul en cours…";
@@ -4234,7 +4257,7 @@ async function apercuMouillage(){
     });
 
     btn.textContent = "Voir sur la carte →";
-    btn.onclick = () => voir("carte");
+    btn.onclick = () => montrerSurCarte(p);
 
   } catch (e){
     $("mouillage-detail").textContent = "Calcul impossible : " + e.message + ".";
