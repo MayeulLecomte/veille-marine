@@ -2749,6 +2749,7 @@ function fenetreNuit(h){
    une mesure — elle est toujours annoncée « à vérifier ».
    ========================================================== */
 
+const CANDIDATS = 20;               // mouillages évalués autour de la carte
 const MARGE_SOUS_QUILLE = 1;        // mètres d'eau souhaités sous la quille
 const APPROCHE = [150, 250, 350];   // où l'on sonde, en mètres de l'amer
 const sondesConnues = new Map();    // un même abri n'est demandé qu'une fois
@@ -2886,7 +2887,7 @@ async function calculerConseils(){
       deja.push(p);
       return true;
     })
-    .slice(0, 12);
+    .slice(0, CANDIDATS);
 
   if (annule) throw new Error("interrompu");
 
