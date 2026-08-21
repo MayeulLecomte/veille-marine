@@ -328,14 +328,18 @@ section.prev{margin-bottom:26px}
 .pt-abri.orange{color:#E0A62B}
 .pt-abri.rouge {color:#C93A2A}
 
-.pastille{
+/* Les puces de la légende. Surtout pas « pastille » : ce nom est déjà
+   celui du point de verdict de l'Accueil, qui porte un margin-top de
+   7 px et un halo coloré — les deux se seraient marché dessus. */
+.puce-legende{
   width:14px;height:14px;border-radius:50%;
   border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.3);
 }
-.pastille.neutre{background:#8FA6B6}
-.pastille.vert  {background:#17A05F}
-.pastille.orange{background:#E0A62B}
-.pastille.rouge {background:#C93A2A}
+.puce-legende.neutre{background:#8FA6B6}
+.puce-legende.vert  {background:#17A05F}
+.puce-legende.orange{background:#E0A62B}
+.puce-legende.rouge {background:#C93A2A}
+.puce-legende.port  {background:var(--magenta);border-radius:4px}
 
 /* ---------- Commandes sous la carte ---------- */
 button{
@@ -1143,11 +1147,11 @@ body.en-alarme .bloc-alerte{
     <div class="etat-services" id="etat-mouillages"></div>
 
     <div class="legende">
-      <span><i class="pastille vert"></i> bon abri</span>
-      <span><i class="pastille orange"></i> passable</span>
-      <span><i class="pastille rouge"></i> à éviter</span>
-      <span><i class="pastille neutre"></i> en calcul</span>
-      <span><i class="pt-port"></i> port</span>
+      <span><i class="puce-legende vert"></i> bon abri</span>
+      <span><i class="puce-legende orange"></i> passable</span>
+      <span><i class="puce-legende rouge"></i> à éviter</span>
+      <span><i class="puce-legende neutre"></i> en calcul</span>
+      <span><i class="puce-legende port"></i> port</span>
     </div>
   </section>
   </div>
