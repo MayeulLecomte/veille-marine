@@ -315,15 +315,27 @@ section.prev{margin-bottom:26px}
   background:var(--magenta);border:2px solid #fff;
   box-shadow:0 1px 3px rgba(0,0,0,.3);
 }
-.pt-note{
-  width:18px;height:18px;border-radius:50%;
-  border:2.5px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.3);
+/* Le repère d'un abri : une goutte, une ancre, et une couleur qui
+   dit ce que vaut le mouillage cette nuit. Le verdict, pas le genre. */
+.pt-abri{
+  width:26px;height:34px;line-height:0;cursor:pointer;
+  filter:drop-shadow(0 1px 3px rgba(0,0,0,.35));
+  transition:color .2s ease;
 }
-.pt-note.r0{background:#17A05F}
-.pt-note.r1{background:#5FB86A}
-.pt-note.r2{background:#E0A62B}
-.pt-note.r3{background:#E2711B}
-.pt-note.r4{background:#C93A2A}
+.pt-abri svg{display:block;width:26px;height:34px}
+.pt-abri.neutre{color:#8FA6B6}
+.pt-abri.vert  {color:#17A05F}
+.pt-abri.orange{color:#E0A62B}
+.pt-abri.rouge {color:#C93A2A}
+
+.pastille{
+  width:14px;height:14px;border-radius:50%;
+  border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.3);
+}
+.pastille.neutre{background:#8FA6B6}
+.pastille.vert  {background:#17A05F}
+.pastille.orange{background:#E0A62B}
+.pastille.rouge {background:#C93A2A}
 
 /* ---------- Commandes sous la carte ---------- */
 button{
@@ -344,7 +356,8 @@ button:focus-visible{outline:3px solid rgba(10,132,255,.45);outline-offset:2px}
 .bascule input[type=checkbox]{accent-color:var(--bleu);width:19px;height:19px}
 
 .legende{display:flex;gap:16px;flex-wrap:wrap;margin-top:11px;font-size:12px;color:var(--encre-2)}
-.legende span{display:flex;align-items:center;gap:7px}
+.legende span{display:flex;align-items:center;gap:7px;white-space:nowrap;flex:0 0 auto}
+body.plein-carte .legende::-webkit-scrollbar{display:none}
 .legende i{display:block;flex:0 0 auto}
 
 .outil{
@@ -655,7 +668,10 @@ body.plein-carte #carte{
 body.plein-carte .legende{
   position:fixed;z-index:55;
   top:calc(env(safe-area-inset-top) + 10px);left:12px;right:12px;
-  margin:0;padding:8px 14px;justify-content:center;gap:14px;
+  margin:0;padding:8px 12px;justify-content:center;gap:9px;
+  /* Cinq entrées ne tiennent pas partout sur une ligne : plutôt que
+     de passer à la ligne et de recouvrir les filtres, on fait défiler. */
+  flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;
   background:rgba(255,255,255,.86);
   -webkit-backdrop-filter:blur(24px) saturate(180%);
   backdrop-filter:blur(24px) saturate(180%);
@@ -1126,8 +1142,10 @@ body.en-alarme .bloc-alerte{
     <div class="etat-services" id="etat-mouillages"></div>
 
     <div class="legende">
-      <span><i class="pt-crique"></i> crique / baie</span>
-      <span><i class="pt-mouillage"></i> mouillage tagué</span>
+      <span><i class="pastille vert"></i> bon abri</span>
+      <span><i class="pastille orange"></i> passable</span>
+      <span><i class="pastille rouge"></i> à éviter</span>
+      <span><i class="pastille neutre"></i> en calcul</span>
       <span><i class="pt-port"></i> port</span>
     </div>
   </section>
@@ -1714,6 +1732,7 @@ function carte(lat, lon, nomLieu){
     maCarte.on("moveend", () => {
       if (genreAffiche) montrerServices(genreAffiche, true);
       montrerBaseVisible();
+      lancerVerdicts();
     });
 
     maCarte.on("load", () => {
@@ -2251,11 +2270,13 @@ function montrerBaseVisible(){
   if (!retenus.length) return false;
   afficherMouillages(retenus.slice(0, 400));
 
+  // On annonce ce qui est réellement posé, doublons retirés.
+  const poses = marqueurs.length;
   const etat = $("etat-mouillages");
   if (etat && !genreAffiche){
     etat.textContent = retenus.length < visibles.length
-      ? `${retenus.length} ports — zoome pour voir les criques`
-      : `${retenus.length} point${retenus.length > 1 ? "s" : ""} dans cette zone`;
+      ? `${poses} ports — zoome pour voir les criques`
+      : `${poses} point${poses > 1 ? "s" : ""} dans cette zone`;
   }
   return true;
 }
@@ -2269,7 +2290,54 @@ function montrerBaseVisible(){
    ========================================================== */
 
 let marqueurs = [];        // mouillages affichés
-let marqueursNote = [];    // pastilles de verdict
+const abris = new Map();   // clé -> {marqueur, el, nom, lat, lon, details, note, sonde, eau}
+
+const cleAbri = (lat, lon) => lat.toFixed(5) + "," + lon.toFixed(5);
+
+/* La goutte des photos de Navily : ancre blanche sur fond de couleur.
+   Dessinée ici plutôt qu'en image — nette à tous les zooms, et la
+   teinte se pilote depuis le code. */
+const GOUTTE = `<svg viewBox="0 0 26 34" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <path d="M13 0C5.8 0 0 5.8 0 13c0 9.1 13 21 13 21s13-11.9 13-21C26 5.8 20.2 0 13 0z" fill="currentColor"/>
+  <circle cx="13" cy="12.8" r="8.3" fill="#fff"/>
+  <g transform="translate(13,12.8) scale(.62)" fill="none" stroke="currentColor"
+     stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="0" cy="-7.6" r="2.3"/>
+    <path d="M0 -5.3V8.6"/>
+    <path d="M-4.7 -1.9h9.4"/>
+    <path d="M-7.6 2.4c0 4.3 3.4 6.4 7.6 6.4s7.6-2.1 7.6-6.4"/>
+  </g>
+</svg>`;
+
+function repereAbri(teinte){
+  const el = document.createElement("div");
+  el.className = "pt-abri " + teinte;
+  el.innerHTML = GOUTTE;
+  return el;
+}
+
+/* Vert, orange ou rouge. Trois couleurs, pas cinq : au soleil et en
+   mouvement, on ne lit qu'un feu tricolore. Et l'eau prime — un abri
+   parfait au vent où l'on touche reste un abri rouge. */
+function teinteAbri(note, eau){
+  if (eau === "insuffisant") return "rouge";
+  if (note.rang >= 3) return "rouge";
+  if (note.rang === 2) return "orange";
+  return eau === "juste" ? "orange" : "vert";
+}
+
+// Le contenu d'une bulle, avec le verdict s'il est connu.
+function contenuBulle(a){
+  let h = `<b>${a.nom}</b><br>${a.details.join(" · ")}`;
+  if (a.note){
+    h += `<br><b>${a.note.mot}</b> cette nuit`;
+    h += a.sonde === null
+      ? "<br>fond non résolu — à vérifier"
+      : `<br>fond ${metresDits(a.sonde)} m — à vérifier`;
+  }
+  return h + `<br><button class="popup-aller" data-lat="${a.lat}" ` +
+    `data-lon="${a.lon}" data-nom="${a.nom}">Aller ici</button>`;
+}
 let pointsCharges = [];   // candidats retenus pour le calcul d'exposition
 
 async function chargerMouillages(){
@@ -2310,9 +2378,42 @@ function famille(t){
   return {cle:"mouillage", nom:"Mouillage tagué", classe:"pt-mouillage"};
 }
 
+/* OpenStreetMap tague souvent la même crique deux fois — natural=bay
+   et seamark:type=anchorage à quelques mètres l'un de l'autre. Sur la
+   carte cela donnait deux gouttes superposées dont une seule recevait
+   le verdict : une grise collée à une verte. On ne garde que la mieux
+   documentée des deux. */
+function sansDoublons(elements){
+  const gardes = [];
+
+  elements.forEach(el => {
+    const lat = el.lat ?? el.center?.lat;
+    const lon = el.lon ?? el.center?.lon;
+    if (lat === undefined || lon === undefined) return;
+
+    const nom = el.tags?.name;
+    if (nom){
+      const jumeau = gardes.find(g =>
+        g.nom === nom && distanceNM(g.lat, g.lon, lat, lon) * 1852 < 300);
+      if (jumeau){
+        if (Object.keys(el.tags || {}).length > Object.keys(jumeau.el.tags || {}).length){
+          jumeau.el = el; jumeau.lat = lat; jumeau.lon = lon;
+        }
+        return;
+      }
+    }
+    gardes.push({nom, lat, lon, el});
+  });
+
+  return gardes.map(g => g.el);
+}
+
 function afficherMouillages(elements){
   marqueurs.forEach(m => m.remove());
   marqueurs = [];
+  abris.clear();
+
+  elements = sansDoublons(elements);
 
   const compte = {mouillage:0, crique:0, port:0};
   pointsCharges = [];
@@ -2331,21 +2432,38 @@ function afficherMouillages(elements){
     if (t["seamark:anchorage:category"]) details.push(t["seamark:anchorage:category"]);
     if (t["seamark:bottom:nature"])      details.push("fond : " + t["seamark:bottom:nature"]);
 
-    const el2 = document.createElement("div");
-    el2.className = f.classe;
-
-    marqueurs.push(
-      new maplibregl.Marker({element:el2})
+    /* Un port reste un port : carré magenta, il ne se juge pas au vent.
+       Tout le reste devient une goutte, grise tant que le verdict de la
+       nuit n'est pas tombé. */
+    if (f.cle === "port"){
+      const el2 = document.createElement("div");
+      el2.className = f.classe;
+      marqueurs.push(
+        new maplibregl.Marker({element:el2})
+          .setLngLat([lon, lat])
+          .setPopup(new maplibregl.Popup({offset:12}).setHTML(
+            `<b>${nom}</b><br>${details.join(" · ")}` +
+            `<br><button class="popup-aller" data-lat="${lat}" data-lon="${lon}" data-nom="${nom}">Aller ici</button>`))
+          .addTo(maCarte)
+      );
+    } else {
+      const el2 = repereAbri("neutre");
+      const a = {nom, lat, lon, details, el:el2, note:null, sonde:null, eau:null};
+      a.marqueur = new maplibregl.Marker({element:el2, anchor:"bottom"})
         .setLngLat([lon, lat])
-        .setPopup(new maplibregl.Popup({offset:12}).setHTML(
-          `<b>${nom}</b><br>${details.join(" · ")}` +
-          `<br><button class="popup-aller" data-lat="${lat}" data-lon="${lon}" data-nom="${nom}">Aller ici</button>`))
-        .addTo(maCarte)
-    );
+        .setPopup(new maplibregl.Popup({offset:36}).setHTML(contenuBulle(a)))
+        .addTo(maCarte);
+      marqueurs.push(a.marqueur);
+      abris.set(cleAbri(lat, lon), a);
+    }
 
     compte[f.cle]++;
     if (f.cle !== "port") pointsCharges.push({nom, lat, lon, type:f.nom});
   });
+
+  // La carte se reconstruit à chaque déplacement : on repeint les
+  // verdicts déjà calculés, sinon tout redeviendrait gris.
+  if (derniersConseils.length) appliquerVerdicts(derniersConseils);
 }
 
 /* ==========================================================
@@ -2788,8 +2906,35 @@ async function calculerConseils(){
   evalues.sort((a, b) => rangEau(a.eau) - rangEau(b.eau) || a.pire.indice - b.pire.indice);
 
   derniersConseils = evalues;
-  colorerCarte(evalues);
+  appliquerVerdicts(evalues);
   return evalues;
+}
+
+/* Les couleurs arrivent en deux temps : les repères s'affichent tout
+   de suite en gris, puis virent au vert, à l'orange ou au rouge dès que
+   le calcul aboutit. Rien n'attend l'utilisateur, rien ne le bloque —
+   et si Overpass ne répond pas, la carte reste simplement grise. */
+let verdictsEnCours = false;
+let centreVerdicts = null;       // là où le dernier calcul a été fait
+
+async function lancerVerdicts(force){
+  if (verdictsEnCours || !maCarte || !meteoCourante) return;
+  if (pointsCharges.length === 0) return;
+
+  // Inutile de tout refaire pour trois cents mètres de dérive.
+  const c = maCarte.getCenter();
+  if (!force && centreVerdicts &&
+      distanceNM(centreVerdicts.lat, centreVerdicts.lon, c.lat, c.lng) < 3) return;
+
+  verdictsEnCours = true;
+  centreVerdicts = {lat:c.lat, lon:c.lng};
+  try {
+    await calculerConseils();
+  } catch (e){
+    centreVerdicts = null;       // on retentera au prochain passage
+  } finally {
+    verdictsEnCours = false;
+  }
 }
 
 function evaluer(p, heures){
@@ -2821,24 +2966,21 @@ function evaluer(p, heures){
 }
 
 
-// Recolore les marqueurs selon le verdict.
-function colorerCarte(liste){
-  marqueursNote.forEach(m => m.remove());
-  marqueursNote = [];
-
+/* Les verdicts ne posent plus de seconde couche de pastilles : ils
+   teintent le repère déjà en place et enrichissent sa bulle. */
+function appliquerVerdicts(liste){
   liste.forEach(p => {
-    const el = document.createElement("div");
-    el.className = "pt-note r" + p.note.rang;
+    const a = abris.get(cleAbri(p.lat, p.lon));
+    if (!a) return;
 
-    marqueursNote.push(
-      new maplibregl.Marker({element:el})
-        .setLngLat([p.lon, p.lat])
-        .setPopup(new maplibregl.Popup({offset:12})
-          .setHTML(`<b>${p.nom}</b><br>${p.note.mot}` +
-            (p.sonde === null ? "<br>fond non résolu — à vérifier"
-                              : `<br>fond ${metresDits(p.sonde)} m — à vérifier`)))
-        .addTo(maCarte)
-    );
+    a.note  = p.note;
+    a.sonde = p.sonde;
+    a.eau   = p.eau;
+    // classList, pas className : MapLibre pose ses propres classes
+    // sur cet élément et le positionnement du marqueur en dépend.
+    a.el.classList.remove("neutre", "vert", "orange", "rouge");
+    a.el.classList.add(teinteAbri(p.note, p.eau));
+    a.marqueur.getPopup().setHTML(contenuBulle(a));
   });
 }
 
@@ -4376,11 +4518,8 @@ function montrerSurCarte(p){
       zoom: Math.max(maCarte.getZoom(), 13.5)
     });
 
-    const m = marqueursNote.find(m => {
-      const l = m.getLngLat();
-      return Math.abs(l.lng - p.lon) < 1e-6 && Math.abs(l.lat - p.lat) < 1e-6;
-    });
-    if (m && !m.getPopup().isOpen()) m.togglePopup();
+    const a = abris.get(cleAbri(p.lat, p.lon));
+    if (a && !a.marqueur.getPopup().isOpen()) a.marqueur.togglePopup();
   }, 90);
 }
 
@@ -5017,6 +5156,8 @@ function voir(nom){
       maCarte.resize();
       if (cadreRoute) maCarte.fitBounds(cadreRoute, {padding:44, duration:0});
       suivreSonde();
+      montrerBaseVisible();      // la carte connaît enfin ses dimensions
+      lancerVerdicts();          // puis les couleurs arrivent d'elles-mêmes
     }, 60);
   }
   window.scrollTo(0, 0);
