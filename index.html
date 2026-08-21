@@ -194,6 +194,16 @@ header{margin-bottom:20px}
 .note-abri.r0,.note-abri.r1{background:rgba(23,160,95,.15);color:#0E7A47}
 .note-abri.r2{background:rgba(224,166,43,.2);color:#8A6100}
 .note-abri.r3,.note-abri.r4{background:rgba(201,58,42,.15);color:#96281B}
+.sonde-abri{
+  display:inline-block;margin-top:6px;font-size:12.5px;font-weight:600;color:var(--encre-2);
+}
+.sonde-abri.maigre{color:#96281B}
+.avis-sonde{
+  display:block;margin-top:8px;padding:8px 12px;border-radius:14px;
+  font-size:12.5px;line-height:1.35;
+}
+.avis-sonde.alerte{background:rgba(201,58,42,.12);color:#96281B;font-weight:600}
+.avis-sonde.info{background:rgba(10,111,194,.10);color:#0A6FC2}
 
 /* ---------- 5. L'alerte, en raccourci ---------- */
 .rang-alerte{
@@ -2600,6 +2610,113 @@ function fenetreNuit(h){
   return idx;
 }
 
+/* ==========================================================
+   LA SONDE DES ABRIS
+   ----------------------------------------------------------
+   L'exposition au vent ne dit rien de la profondeur : une
+   crique parfaitement abritée peut n'avoir que soixante
+   centimètres d'eau. On sonde donc chaque candidat, et ce qui
+   n'a pas de quoi flotter descend en fin de classement.
+
+   La maille d'EMODnet fait 125 mètres : au ras d'une plage
+   elle se trompe volontiers. Cette sonde est un signal, jamais
+   une mesure — elle est toujours annoncée « à vérifier ».
+   ========================================================== */
+
+const MARGE_SOUS_QUILLE = 1;        // mètres d'eau souhaités sous la quille
+const APPROCHE = [150, 250, 350];   // où l'on sonde, en mètres de l'amer
+const sondesConnues = new Map();    // un même abri n'est demandé qu'une fois
+
+function tirantBateau(){
+  const v = parseFloat(localStorage.getItem("mynav-b-tirant"));
+  return v > 0 ? v : null;
+}
+
+/* Le point taggué est au fond de la crique, souvent sur la plage :
+   EMODnet y répond « à terre » neuf fois sur dix. On sonde donc
+   l'approche, dans l'aire la plus ouverte — celle par où l'on entre. */
+function capOuverture(p){
+  let i = 0;
+  p.sig.forEach((f, j) => { if (f > p.sig[i]) i = j; });
+  return i * 22.5;
+}
+
+async function sonderVers(p, cap, d){
+  const dlat = d * Math.cos(cap * Math.PI / 180) / 110540;
+  const dlon = d * Math.sin(cap * Math.PI / 180) / (111320 * Math.cos(p.lat * Math.PI / 180));
+  try { return await sonderPoint(p.lat + dlat, p.lon + dlon); }
+  catch (e){ return null; }
+}
+
+/* Mètres d'eau dans l'approche — la plus faible des sondes qui
+   tombent dans l'eau. null si aucune ne s'y trouve : à cette
+   maille, une calanque étroite est entièrement vue comme un
+   caillou, et un fond non résolu ne vaut pas un fond nul. */
+async function sonderCandidat(p){
+  const cle = p.lat.toFixed(4) + "," + p.lon.toFixed(4);
+  if (sondesConnues.has(cle)) return sondesConnues.get(cle);
+
+  const cap = capOuverture(p);
+  const brut = await Promise.all(APPROCHE.map(d => sonderVers(p, cap, d)));
+  const eaux = brut.filter(v => v !== null && v < 0).map(v => -v);
+
+  const sonde = eaux.length ? Math.min(...eaux) : null;
+  sondesConnues.set(cle, sonde);
+  return sonde;
+}
+
+// assez / juste / insuffisant — null si la sonde ou le tirant manque.
+function jugerEau(sonde, tirant){
+  if (sonde === null || tirant === null) return null;
+  if (sonde < tirant) return "insuffisant";
+  if (sonde < tirant + MARGE_SOUS_QUILLE) return "juste";
+  return "assez";
+}
+
+async function sonderListe(liste){
+  const tirant = tirantBateau();
+  await Promise.all(liste.map(async p => {
+    p.sonde = await sonderCandidat(p);
+    p.eau   = jugerEau(p.sonde, tirant);
+  }));
+  return liste;
+}
+
+const rangEau = e => e === "assez" ? 0 : e === "juste" ? 1 : e === "insuffisant" ? 3 : 2;
+
+const metresDits = v => v.toFixed(1).replace(".", ",");
+
+/* Le repli existe-t-il ? C'est toute la question quand on
+   choisit un abri pour la nuit. */
+function avisSonde(liste){
+  const tirant = tirantBateau();
+  if (tirant === null){
+    return {ton:"info", texte:"Renseigne ton tirant d'eau dans « Mon bateau » " +
+      "pour que la sonde entre dans le classement."};
+  }
+
+  // Une même crique est parfois taguée deux fois : on compte des abris,
+  // pas des points, sinon « le seul des environs » devient faux.
+  const noms = l => [...new Set(l.map(p => p.nom))];
+  const tenables = noms(liste.filter(p => p.eau === "assez" || p.eau === "juste"));
+  const mesures  = liste.filter(p => p.eau !== null);
+  const t = metresDits(tirant);
+
+  if (tenables.length === 0){
+    if (mesures.length === 0){
+      return {ton:"info", texte:"EMODnet ne résout pas les fonds de ces criques : " +
+        "le classement ne tient compte que du vent. Sonde entièrement à vérifier."};
+    }
+    return {ton:"alerte", texte:`Aucun abri des environs n'annonce assez d'eau pour ` +
+      `${t} m de tirant. Sonde à vérifier sur ta carte avant d'approcher.`};
+  }
+  if (tenables.length === 1){
+    return {ton:"alerte", texte:`${tenables[0]} est le seul des environs à annoncer ` +
+      `assez d'eau pour ${t} m de tirant : aucun repli. Sonde à vérifier.`};
+  }
+  return null;
+}
+
 // --- Le conseil proprement dit. Renvoie la liste classée.
 async function calculerConseils(){
   if (pointsCharges.length === 0) throw new Error("aucun mouillage chargé");
@@ -2623,12 +2740,26 @@ async function calculerConseils(){
   majAttente("Calcul de l'exposition des mouillages…");
 
   const proj = projecteur(c.lat, c.lng);
+
+  /* Une même crique porte souvent deux tags OpenStreetMap — natural=bay
+     et seamark:type=anchorage — à quelques mètres l'un de l'autre. Deux
+     entrées, deux sondes, deux verdicts pour le même mouillage : on ne
+     garde que la plus proche. */
+  const deja = [];
   const candidats = pointsCharges
     .map(p => {
       const [x, y] = proj(p.lat, p.lon);
       return {...p, dist: Math.hypot(x, y)};
     })
     .sort((a, b) => a.dist - b.dist)
+    .filter(p => {
+      if (!p.nom) return true;
+      const double = deja.some(q =>
+        q.nom === p.nom && distanceNM(q.lat, q.lon, p.lat, p.lon) * 1852 < 300);
+      if (double) return false;
+      deja.push(p);
+      return true;
+    })
     .slice(0, 12);
 
   if (annule) throw new Error("interrompu");
@@ -2638,6 +2769,15 @@ async function calculerConseils(){
 
   const evalues = candidats.map(p => evaluer(p, heures)).filter(Boolean);
   evalues.sort((a, b) => a.pire.indice - b.pire.indice);
+
+  if (annule) throw new Error("interrompu");
+
+  majAttente("Sondage des fonds…");
+  await sonderListe(evalues);
+
+  // Un abri parfait où l'on touche n'est pas un abri : ce qui
+  // manque d'eau passe derrière, sans disparaître pour autant.
+  evalues.sort((a, b) => rangEau(a.eau) - rangEau(b.eau) || a.pire.indice - b.pire.indice);
 
   derniersConseils = evalues;
   colorerCarte(evalues);
@@ -2686,7 +2826,9 @@ function colorerCarte(liste){
       new maplibregl.Marker({element:el})
         .setLngLat([p.lon, p.lat])
         .setPopup(new maplibregl.Popup({offset:12})
-          .setHTML(`<b>${p.nom}</b><br>${p.note.mot}`))
+          .setHTML(`<b>${p.nom}</b><br>${p.note.mot}` +
+            (p.sonde === null ? "<br>fond non résolu — à vérifier"
+                              : `<br>fond ${metresDits(p.sonde)} m — à vérifier`)))
         .addTo(maCarte)
     );
   });
@@ -3352,10 +3494,15 @@ async function outilsLocaux(q){
   if (/mouill|dormir|nuit|ce soir|abrit|cala|crique|ou aller|où aller|escale|conseill|passer la nuit|jeter l/.test(q)){
     try {
       const liste = await calculerConseils();
+      faits.tirant_eau_m = tirantBateau();
+      faits.sonde_source = "EMODnet, maille 125 m, relevée dans l'approche de chaque abri : " +
+        "indicative, toujours à vérifier sur la carte";
       faits.mouillages_classes = liste.slice(0, 6).map(p => ({
         nom: p.nom,
         verdict: p.note.mot,
         distance_milles: +(p.dist / 1852).toFixed(1),
+        sonde_m: p.sonde === null ? null : +p.sonde.toFixed(1),
+        eau: p.eau,
         pire_moment: {
           heure: p.pire.heure.toLocaleTimeString("fr-FR", {hour:"2-digit", minute:"2-digit"}),
           vent_de: aire(p.pire.dir),
@@ -4247,7 +4394,23 @@ async function apercuMouillage(){
       `<span class="note-abri r${p.note.rang}">${p.note.mot}</span><br>` +
       `${(p.dist / 1852).toFixed(1).replace(".", ",")} milles d'ici. ` +
       `Au pire vers ${hh} : vent de ${aire(q.dir)} à ${Math.round(q.kn)} nœuds, ` +
-      `${nm} mille${nm >= 2 ? "s" : ""} d'eau libre dans cette direction.`;
+      `${nm} mille${nm >= 2 ? "s" : ""} d'eau libre dans cette direction.` +
+
+      // La sonde, toujours donnée pour ce qu'elle vaut
+      `<br><span class="sonde-abri${p.eau === "insuffisant" ? " maigre" : ""}">` +
+      (p.sonde === null
+        ? "Fond non résolu ici — à vérifier"
+        : `Fond annoncé ${metresDits(p.sonde)} m dans l'approche — à vérifier`) +
+      (p.eau === "insuffisant" ? " · moins que ton tirant" :
+       p.eau === "juste"       ? " · marge courte" : "") +
+      `</span>`;
+
+    // Et le mot d'avertissement, s'il n'y a pas de repli
+    const avis = avisSonde(liste);
+    if (avis){
+      $("mouillage-detail").innerHTML +=
+        `<span class="avis-sonde ${avis.ton}">${avis.texte}</span>`;
+    }
 
     // La vignette prend les couleurs des trois premiers verdicts
     const teintes = ["#17A05F","#5FB86A","#E0A62B","#E2711B","#C93A2A"];
