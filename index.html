@@ -268,9 +268,17 @@ section.prev{margin-bottom:26px}
 .maplibregl-ctrl-attrib{font-size:9.5px;background:rgba(255,255,255,.8)!important;border-radius:100px 0 0 0}
 .maplibregl-ctrl-attrib a{color:var(--bleu)}
 .maplibregl-popup-content{
-  border-radius:15px;padding:11px 14px;font-size:13.5px;line-height:1.4;
+  border-radius:15px;padding:11px 30px 11px 14px;font-size:13.5px;line-height:1.4;
   box-shadow:0 6px 20px rgba(16,74,116,.2);
 }
+/* La croix de fermeture héritait du bouton bleu de l'application :
+   blanche sur fond blanc, et large comme une vignette. */
+.maplibregl-popup-close-button{
+  width:26px;height:26px;padding:0;
+  background:none;box-shadow:none;border-radius:0 15px 0 12px;
+  color:var(--encre);font-size:17px;font-weight:600;line-height:1;
+}
+.maplibregl-popup-close-button:hover{background:rgba(16,74,116,.08)}
 .maplibregl-popup-content b{font-weight:600}
 .maplibregl-ctrl-group{border-radius:12px!important;overflow:hidden}
 .popup-aller{
