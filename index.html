@@ -356,8 +356,7 @@ button:focus-visible{outline:3px solid rgba(10,132,255,.45);outline-offset:2px}
 .bascule input[type=checkbox]{accent-color:var(--bleu);width:19px;height:19px}
 
 .legende{display:flex;gap:16px;flex-wrap:wrap;margin-top:11px;font-size:12px;color:var(--encre-2)}
-.legende span{display:flex;align-items:center;gap:7px;white-space:nowrap;flex:0 0 auto}
-body.plein-carte .legende::-webkit-scrollbar{display:none}
+.legende span{display:flex;align-items:center;gap:6px;white-space:nowrap;flex:0 0 auto}
 .legende i{display:block;flex:0 0 auto}
 
 .outil{
@@ -668,16 +667,18 @@ body.plein-carte #carte{
 body.plein-carte .legende{
   position:fixed;z-index:55;
   top:calc(env(safe-area-inset-top) + 10px);left:12px;right:12px;
-  margin:0;padding:8px 12px;justify-content:center;gap:9px;
-  /* Cinq entrées ne tiennent pas partout sur une ligne : plutôt que
-     de passer à la ligne et de recouvrir les filtres, on fait défiler. */
-  flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;
+  margin:0;padding:8px 12px;
+  /* Cinq entrées tiennent sur une ligne à 375 px, pas à 320 : on les
+     laisse passer à la ligne, centrées, et c'est la rangée de filtres
+     qui descend d'autant (calerFiltres). Rien n'est jamais coupé. */
+  flex-wrap:wrap;justify-content:center;
+  column-gap:9px;row-gap:5px;
   background:rgba(255,255,255,.86);
   -webkit-backdrop-filter:blur(24px) saturate(180%);
   backdrop-filter:blur(24px) saturate(180%);
-  border:1px solid rgba(255,255,255,.9);border-radius:100px;
+  border:1px solid rgba(255,255,255,.9);border-radius:22px;
   box-shadow:0 4px 16px rgba(16,74,116,.16);
-  font-size:11px;
+  font-size:10.5px;
 }
 
 /* On dégage les commandes de MapLibre de la légende et des onglets */
@@ -5140,6 +5141,24 @@ function voirVolet(nom){
 
 let cadreRoute = null;   // dernier trajet, à recadrer en arrivant sur la carte
 
+/* La légende tient sur une ligne à 375 px, sur deux à 320. Plutôt que
+   de figer un décalage qui finit par recouvrir ou par laisser un trou,
+   on descend la rangée de filtres de la hauteur réellement occupée. */
+function calerFiltres(){
+  const l = document.querySelector(".legende");
+  const f = $("filtres-services");
+  if (!l || !f) return;
+
+  if (!document.body.classList.contains("plein-carte")){
+    f.style.top = "";
+    return;
+  }
+  const h = Math.round(l.getBoundingClientRect().height);
+  f.style.top = `calc(env(safe-area-inset-top) + ${10 + h + 6}px)`;
+}
+
+window.addEventListener("resize", calerFiltres);
+
 function voir(nom){
   document.querySelectorAll(".vue")
     .forEach(v => v.classList.toggle("masque", v.dataset.vue !== nom));
@@ -5157,6 +5176,7 @@ function voir(nom){
       maCarte.resize();
       if (cadreRoute) maCarte.fitBounds(cadreRoute, {padding:44, duration:0});
       suivreSonde();
+      calerFiltres();            // la légende peut tenir sur deux lignes
       montrerBaseVisible();      // la carte connaît enfin ses dimensions
       lancerVerdicts();          // puis les couleurs arrivent d'elles-mêmes
     }, 60);
