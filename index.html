@@ -772,6 +772,44 @@ body.plein-carte .maplibregl-ctrl-bottom-left{margin-bottom:76px}
 .fiche-bateau input:focus{outline:3px solid rgba(255,197,49,.7);outline-offset:1px}
 .mini-note{font-size:11.5px;color:var(--encre-2);line-height:1.45;margin-top:2px}
 
+/* ---------- Les réserves du bord ---------- */
+.jauges{padding:6px 18px 16px;display:flex;flex-direction:column}
+.jauge{display:flex;align-items:center;gap:16px;padding:14px 0;border-top:1px solid var(--bord)}
+.jauge:first-child{border-top:none}
+
+.jauge-cadran{flex:0 0 auto;position:relative;width:66px;height:66px}
+.jauge-cadran svg{display:block;width:66px;height:66px;transform:rotate(-90deg)}
+.jauge-cadran circle{fill:none;stroke-width:5;stroke-linecap:round}
+.jauge-piste{stroke:rgba(10,54,82,.12)}
+.jauge-niveau{transition:stroke-dashoffset .5s ease, stroke .3s ease}
+.jauge.plein  .jauge-niveau{stroke:#17A05F}
+.jauge.moyen  .jauge-niveau{stroke:#E0A62B}
+.jauge.bas    .jauge-niveau{stroke:#C93A2A}
+.jauge.muette .jauge-niveau{stroke:#8FA6B6}
+.jauge-pc{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-size:16px;font-weight:700;font-variant-numeric:tabular-nums;
+}
+.jauge.bas .jauge-pc{color:#96281B}
+.jauge.muette .jauge-pc{color:var(--encre-2)}
+
+.jauge-corps{flex:1 1 auto;min-width:0}
+.jauge-nom{font-size:15px;font-weight:700;letter-spacing:-.01em}
+.jauge-chiffres{font-size:13px;color:var(--encre-2);margin-top:1px;font-variant-numeric:tabular-nums}
+.jauge-source{font-size:11.5px;color:var(--encre-2);margin-top:2px}
+.jauge-source.bas{color:#96281B;font-weight:600}
+.jauge-corps input[type=range]{width:100%;margin-top:8px}
+.jauge-corps input[type=range]:disabled{opacity:.4}
+
+.capacites{display:flex;flex-direction:column;gap:12px;margin-top:12px}
+.capacites label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--encre-2)}
+.capacites input{
+  font:inherit;font-size:16px;padding:10px 14px;
+  border:1px solid var(--bord);border-radius:12px;
+  background:var(--verre-fort);color:var(--encre);
+}
+.capacites input:focus{outline:3px solid rgba(255,197,49,.7);outline-offset:1px}
+
 /* ---------- Journal de bord ---------- */
 .volet{display:block}
 .volet.masque{display:none}
@@ -1184,6 +1222,24 @@ body.en-alarme .bloc-alerte{
         Le point d'ancrage sera ta position à cet instant.
       </div>
     </div>
+
+    <div class="section-titre"><h2>Réserves du bord</h2><span>eau, carburant, servitude</span></div>
+    <div class="bloc jauges" id="jauges"></div>
+
+    <details class="outil" id="reglage-reserves">
+      <summary>Régler les capacités et brancher les sondes</summary>
+      <div class="capacites" id="capacites"></div>
+      <p>Sans sonde, règle le niveau à la main avec les curseurs : c'est toi la jauge.
+         Tout reste sur ton téléphone.</p>
+      <p>Quand les sondes seront posées, elles n'auront qu'à appeler
+         <code>mynav.reserve("eau", {niveau: 120})</code> — ou
+         <code>{pourcentage: 60}</code> — depuis la passerelle du bord. Les clés sont
+         <code>eau</code>, <code>carburant</code> et <code>electricite</code>. La jauge
+         passe alors en mode sonde, le curseur se verrouille, et l'heure du dernier
+         relevé s'affiche. Au-delà de vingt minutes sans nouvelle, la sonde est déclarée
+         muette et sa dernière valeur connue est grisée — une jauge figée sur un vieux
+         relevé est plus dangereuse qu'une jauge vide.</p>
+    </details>
 
     <div class="section-titre"><h2>Mon bateau</h2><span>pour les demandes de place</span></div>
     <div class="bloc fiche-bateau">
@@ -2093,6 +2149,197 @@ function ficheBateau(){
   if (skipper)          f.skipper = skipper;
   return Object.keys(f).length ? f : null;
 }
+
+/* ==========================================================
+   LES RÉSERVES DU BORD
+   ----------------------------------------------------------
+   Eau, carburant, servitude. Aujourd'hui c'est le skipper qui
+   déclare le niveau ; demain ce seront les sondes. Les deux
+   entrent par la même porte — mynav.reserve() — pour que poser
+   une sonde ne demande de toucher à rien ici.
+   ========================================================== */
+
+const RESERVES = [
+  {cle:"eau",         nom:"Eau douce", unite:"L",  capacite:200},
+  {cle:"carburant",   nom:"Carburant", unite:"L",  capacite:100},
+  {cle:"electricite", nom:"Servitude", unite:"Ah", capacite:200}
+];
+
+const SONDE_MUETTE  = 20 * 60 * 1000;   // sans nouvelle, on ne croit plus la valeur
+const RESERVE_BASSE = 20;               // pourcentage sous lequel on prévient
+const TOUR_CADRAN   = 2 * Math.PI * 27; // le cercle du cadran, rayon 27
+
+const etatReserves = {};   // cle -> {capacite, niveau, source, vu}
+
+const cleReserve = (cle, champ) => `mynav-reserve-${cle}-${champ}`;
+
+const nombreDit = v => (Math.round(v * 10) / 10).toString().replace(".", ",");
+const heureDite = t => new Date(t).toLocaleTimeString("fr-FR", {hour:"2-digit", minute:"2-digit"});
+
+function depuis(t){
+  const m = Math.round((Date.now() - t) / 60000);
+  if (m < 1)  return "à l'instant";
+  if (m < 60) return `il y a ${m} min`;
+  return `il y a ${Math.round(m / 60)} h`;
+}
+
+function chargerReserves(){
+  RESERVES.forEach(r => {
+    const cap = parseFloat(localStorage.getItem(cleReserve(r.cle, "capacite")));
+    const niv = parseFloat(localStorage.getItem(cleReserve(r.cle, "niveau")));
+    const vu  = parseInt(localStorage.getItem(cleReserve(r.cle, "vu")), 10);
+    etatReserves[r.cle] = {
+      capacite: cap > 0 ? cap : r.capacite,
+      niveau:   niv >= 0 ? niv : null,
+      source:   localStorage.getItem(cleReserve(r.cle, "source")) || "manuel",
+      vu:       vu > 0 ? vu : null
+    };
+  });
+}
+
+function enregistrerReserve(cle){
+  const e = etatReserves[cle];
+  localStorage.setItem(cleReserve(cle, "capacite"), e.capacite);
+  localStorage.setItem(cleReserve(cle, "source"), e.source);
+  if (e.vu) localStorage.setItem(cleReserve(cle, "vu"), e.vu);
+  if (e.niveau === null) localStorage.removeItem(cleReserve(cle, "niveau"));
+  else localStorage.setItem(cleReserve(cle, "niveau"), e.niveau);
+}
+
+function construireJauges(){
+  const zone = $("jauges"), reglages = $("capacites");
+  if (!zone || !reglages || zone.dataset.pret) return;
+
+  zone.innerHTML = RESERVES.map(r => `
+    <div class="jauge" id="jauge-${r.cle}">
+      <div class="jauge-cadran">
+        <svg viewBox="0 0 66 66" aria-hidden="true">
+          <circle class="jauge-piste"  cx="33" cy="33" r="27"></circle>
+          <circle class="jauge-niveau" cx="33" cy="33" r="27"
+                  stroke-dasharray="${TOUR_CADRAN.toFixed(1)}"
+                  stroke-dashoffset="${TOUR_CADRAN.toFixed(1)}"></circle>
+        </svg>
+        <div class="jauge-pc" id="pc-${r.cle}">—</div>
+      </div>
+      <div class="jauge-corps">
+        <div class="jauge-nom">${r.nom}</div>
+        <div class="jauge-chiffres" id="chiffres-${r.cle}"></div>
+        <div class="jauge-source" id="source-${r.cle}"></div>
+        <input type="range" id="curseur-${r.cle}" min="0" max="100" step="1" value="0"
+               aria-label="Niveau : ${r.nom.toLowerCase()}">
+      </div>
+    </div>`).join("");
+
+  reglages.innerHTML = RESERVES.map(r => `
+    <label>${r.nom} — capacité en ${r.unite}
+      <input type="number" id="cap-${r.cle}" min="1" max="9999" step="1"></label>`).join("");
+
+  RESERVES.forEach(r => {
+    // Le curseur : la jauge du pauvre, en attendant la sonde.
+    $("curseur-" + r.cle).addEventListener("input", ev => {
+      const e = etatReserves[r.cle];
+      e.niveau = Math.round(e.capacite * (+ev.target.value) / 10) / 10;
+      e.source = "manuel";
+      e.vu = Date.now();
+      enregistrerReserve(r.cle);
+      peindreJauge(r);
+    });
+
+    const cap = $("cap-" + r.cle);
+    cap.value = etatReserves[r.cle].capacite;
+    cap.addEventListener("input", () => {
+      const v = parseFloat(cap.value);
+      if (!(v > 0)) return;
+      etatReserves[r.cle].capacite = v;
+      enregistrerReserve(r.cle);
+      peindreJauge(r);
+    });
+  });
+
+  zone.dataset.pret = "1";
+}
+
+function peindreJauge(r){
+  const bloc = $("jauge-" + r.cle);
+  if (!bloc) return;
+
+  const e = etatReserves[r.cle];
+  const connu  = e.niveau !== null;
+  const pc     = connu ? Math.max(0, Math.min(100, e.niveau / e.capacite * 100)) : 0;
+  const muette = e.source === "sonde" && e.vu && (Date.now() - e.vu > SONDE_MUETTE);
+  const basse  = connu && !muette && pc < RESERVE_BASSE;
+
+  bloc.className = "jauge " + (!connu || muette ? "muette"
+                             : basse ? "bas" : pc < 50 ? "moyen" : "plein");
+
+  bloc.querySelector(".jauge-niveau")
+      .setAttribute("stroke-dashoffset", (TOUR_CADRAN * (1 - pc / 100)).toFixed(1));
+
+  $("pc-" + r.cle).textContent = connu ? Math.round(pc) + " %" : "—";
+  $("chiffres-" + r.cle).textContent = connu
+    ? `${nombreDit(e.niveau)} sur ${nombreDit(e.capacite)} ${r.unite}`
+    : `capacité ${nombreDit(e.capacite)} ${r.unite}`;
+
+  const src = $("source-" + r.cle);
+  src.className = "jauge-source" + (basse ? " bas" : "");
+  src.textContent =
+      !connu ? "aucun relevé — règle le niveau au curseur"
+    : muette ? `sonde muette ${depuis(e.vu)} — dernier relevé à ${heureDite(e.vu)}`
+    : e.source === "sonde" ? `sonde, ${depuis(e.vu)}`
+    : `réglé à la main à ${heureDite(e.vu)}`;
+  if (basse) src.textContent += " · réserve basse";
+
+  const curseur = $("curseur-" + r.cle);
+  curseur.value = Math.round(pc);
+  // Tant que la sonde parle, on ne la contredit pas au doigt.
+  curseur.disabled = e.source === "sonde" && !muette;
+}
+
+const peindreJauges = () => RESERVES.forEach(r => peindreJauge(r));
+
+/* La porte d'entrée des sondes. Passerelle NMEA, boîtier BLE,
+   script maison : tout entre par là.
+     mynav.reserve("eau", {niveau: 120})
+     mynav.reserve("carburant", {pourcentage: 60})
+     mynav.reserve("electricite", {pourcentage: 78, capacite: 300}) */
+window.mynav = window.mynav || {};
+
+window.mynav.reserve = function(cle, valeur){
+  const r = RESERVES.find(x => x.cle === cle);
+  if (!r){ console.warn("mynav.reserve : clé inconnue —", cle); return false; }
+
+  const e = etatReserves[cle];
+  const v = typeof valeur === "number" ? {niveau: valeur} : (valeur || {});
+
+  if (v.capacite > 0) e.capacite = v.capacite;
+
+  let niveau;
+  if (typeof v.niveau === "number")           niveau = v.niveau;
+  else if (typeof v.pourcentage === "number") niveau = e.capacite * v.pourcentage / 100;
+  else { console.warn("mynav.reserve : ni niveau ni pourcentage —", valeur); return false; }
+
+  e.niveau = Math.max(0, Math.min(e.capacite, niveau));
+  e.source = "sonde";
+  e.vu = Date.now();
+  enregistrerReserve(cle);
+
+  const champ = $("cap-" + cle);
+  if (champ) champ.value = e.capacite;
+  peindreJauge(r);
+  return true;
+};
+
+// De quoi relire l'état depuis la console — ou depuis le chat, un jour.
+window.mynav.reserves = () => RESERVES.map(r => ({
+  cle: r.cle, nom: r.nom, unite: r.unite,
+  capacite: etatReserves[r.cle].capacite,
+  niveau:   etatReserves[r.cle].niveau,
+  source:   etatReserves[r.cle].source,
+  releve:   etatReserves[r.cle].vu
+}));
+
+// Une sonde qui se tait doit finir par se voir, même écran allumé.
+setInterval(peindreJauges, 60000);
 
 /* ==========================================================
    LES SERVICES SUR LA CARTE
@@ -5274,6 +5521,9 @@ $("splash").onclick = () => {
 // La position et la base se cherchent pendant ce temps :
 // l'application est prête quand l'écran s'efface.
 chargerBateau();
+chargerReserves();
+construireJauges();
+peindreJauges();
 chargerBase();
 demanderPosition();
 </script>
