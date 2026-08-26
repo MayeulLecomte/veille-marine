@@ -819,6 +819,12 @@ body.plein-carte .maplibregl-ctrl-bottom-left{margin-bottom:76px}
   display:inline-block;margin-top:6px;padding:3px 10px;border-radius:100px;
   font-size:11.5px;font-weight:700;background:rgba(23,160,95,.15);color:#0E7A47;
 }
+.obs-brut{
+  display:block;width:100%;height:118px;margin-top:8px;
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;
+  border:1px solid var(--bord);border-radius:12px;padding:9px;
+  background:var(--verre-fort);color:var(--encre);
+}
 .obs-secours{
   margin-top:8px;padding:8px 12px;border-radius:13px;
   background:rgba(201,58,42,.12);color:#96281B;
@@ -1294,9 +1300,11 @@ body.en-alarme .bloc-alerte{
          mynav fait donc la moitié du travail qui t'ennuie — noter l'heure juste, la
          position exacte et les conditions au moment où tu vois la bête — et te prépare
          le texte à coller.</p>
-      <p>Touche <b>Copier</b> sur un signalement, puis <b>Ouvrir OBSenMER</b> : le
-         formulaire s'ouvre, tu colles, tu valides. Marque ensuite le signalement comme
-         transmis pour savoir ce qu'il te reste à saisir.</p>
+      <p>Touche <b>Partager</b> sur un signalement : la feuille de partage de l'iPhone
+         s'ouvre, et tu l'envoies où tu veux — l'application OBSenMER, un courriel, tes
+         notes. Sur un ordinateur, le signalement part simplement dans le presse-papiers.
+         <b>Ouvrir OBSenMER</b> te mène ensuite à leur formulaire, et tu marques le
+         signalement comme transmis pour savoir ce qu'il te reste à saisir.</p>
       <p>Leur application mobile enregistre aussi hors réseau et reste la voie la plus
          directe. mynav est utile quand tu es déjà dedans, ou pour ressaisir au calme
          une série d'observations en rentrant.</p>
@@ -1308,18 +1316,12 @@ body.en-alarme .bloc-alerte{
     <div class="bloc jauges" id="jauges"></div>
 
     <details class="outil" id="reglage-reserves">
-      <summary>Régler les capacités et brancher les sondes</summary>
+      <summary>Régler les capacités</summary>
       <div class="capacites" id="capacites"></div>
-      <p>Sans sonde, règle le niveau à la main avec les curseurs : c'est toi la jauge.
-         Tout reste sur ton téléphone.</p>
-      <p>Quand les sondes seront posées, elles n'auront qu'à appeler
-         <code>mynav.reserve("eau", {niveau: 120})</code> — ou
-         <code>{pourcentage: 60}</code> — depuis la passerelle du bord. Les clés sont
-         <code>eau</code>, <code>carburant</code> et <code>electricite</code>. La jauge
-         passe alors en mode sonde, le curseur se verrouille, et l'heure du dernier
-         relevé s'affiche. Au-delà de vingt minutes sans nouvelle, la sonde est déclarée
-         muette et sa dernière valeur connue est grisée — une jauge figée sur un vieux
-         relevé est plus dangereuse qu'une jauge vide.</p>
+      <p>Règle le niveau à la main avec les curseurs : pour l'instant, c'est toi la
+         jauge. Tout reste sur ton téléphone.</p>
+      <p class="mini-note"><b>En développement :</b> la connexion de l'application aux
+         sondes du bord, pour que les niveaux se mettent à jour tout seuls.</p>
     </details>
 
     <div class="section-titre"><h2>Mon bateau</h2><span>pour les demandes de place</span></div>
@@ -2340,17 +2342,73 @@ function texteObsenmer(o){
   return l.join("\n");
 }
 
+/* iOS sait faire mieux qu'un copier-coller : la feuille de partage
+   envoie le signalement là où l'utilisateur veut — l'application
+   OBSenMER, un courriel, ses notes. Quand elle n'existe pas, on
+   retombe sur le presse-papiers sans rien dire. */
+const peutPartager = () => typeof navigator.share === "function";
+
+async function transmettre(texte, bouton){
+  if (peutPartager()){
+    try {
+      // Appelé sans await préalable : la feuille de partage exige
+      // que le geste de l'utilisateur soit encore « frais ».
+      await navigator.share({title: "Observation en mer", text: texte});
+      direSurLeBouton(bouton, "Partagé ✓");
+      return "partage";
+    } catch (e){
+      // Feuille refermée : ce n'est pas une panne, on n'insiste pas.
+      if (e && e.name === "AbortError") return "annule";
+    }
+  }
+  return await copierTexte(texte, bouton) ? "copie" : "manuel";
+}
+
+function direSurLeBouton(bouton, mot){
+  if (!bouton) return;
+  const avant = bouton.textContent;
+  bouton.textContent = mot;
+  setTimeout(() => { bouton.textContent = avant; }, 2500);
+}
+
+/* Le dernier recours : on affiche le texte, sélectionné, et
+   l'utilisateur le copie lui-même. Pas de prompt() — il n'existe
+   pas dans toutes les vues web, et son absence passait jusqu'ici
+   pour un silence. */
+function montrerTexteACopier(texte){
+  const etat = $("etat-obs");
+  if (!etat) return;
+  etat.innerHTML = '<span class="mini-note">Le presse-papiers est refusé ici : ' +
+                   'sélectionne ce texte et copie-le.</span>' +
+                   '<textarea class="obs-brut" readonly></textarea>';
+  const zone = etat.querySelector(".obs-brut");
+  zone.value = texte;
+  zone.focus();
+  zone.select();
+}
+
+/* Trois portes, de la plus propre à la plus rustique. */
 async function copierTexte(texte, bouton, motDit){
   try {
     await navigator.clipboard.writeText(texte);
-    if (bouton){ const av = bouton.textContent; bouton.textContent = motDit || "Copié ✓";
-      setTimeout(() => { bouton.textContent = av; }, 2500); }
+    direSurLeBouton(bouton, motDit || "Copié ✓");
     return true;
-  } catch (e){
-    // Safari refuse parfois le presse-papiers : on montre le texte à copier soi-même.
-    window.prompt("Copie ce texte pour OBSenMER :", texte);
-    return false;
-  }
+  } catch (e){}
+
+  try {
+    const zone = document.createElement("textarea");
+    zone.value = texte;
+    zone.setAttribute("readonly", "");
+    zone.style.cssText = "position:fixed;top:0;left:0;opacity:0";
+    document.body.appendChild(zone);
+    zone.select();
+    const passe = document.execCommand("copy");
+    zone.remove();
+    if (passe){ direSurLeBouton(bouton, motDit || "Copié ✓"); return true; }
+  } catch (e){}
+
+  montrerTexteACopier(texte);
+  return false;
 }
 
 function afficherObservations(){
@@ -2388,7 +2446,7 @@ function afficherObservations(){
            value="${(o.note || "").replace(/"/g, "&quot;")}" aria-label="Remarque">
       </div>
       <div class="obs-actions">
-        <button class="obs-copier principal">Copier</button>
+        <button class="obs-partager principal">${peutPartager() ? "Partager" : "Copier"}</button>
         <a href="${OBSENMER}" target="_blank" rel="noopener">Ouvrir OBSenMER →</a>
         <button class="obs-transmis">${o.transmis ? "À ressaisir" : "Transmis ✓"}</button>
         <button class="obs-effacer">Effacer</button>
@@ -2397,7 +2455,7 @@ function afficherObservations(){
     </div>`;
   }).join("") + (aTransmettre > 1
     ? `<div class="obs-actions" style="padding:14px 0 16px">
-         <button class="obs-tout principal">Copier les ${aTransmettre} signalements</button>
+         <button class="obs-tout principal">${peutPartager() ? "Partager" : "Copier"} les ${aTransmettre} signalements</button>
        </div>` : "");
 }
 
@@ -2406,9 +2464,9 @@ document.addEventListener("click", e => {
   const carte = e.target.closest(".carte-obs");
   const id = carte ? +carte.dataset.id : null;
 
-  if (e.target.closest(".obs-copier")){
+  if (e.target.closest(".obs-partager")){
     const o = lireObservations().find(x => x.id === id);
-    if (o) copierTexte(texteObsenmer(o), e.target);
+    if (o) transmettre(texteObsenmer(o), e.target);
     return;
   }
   if (e.target.closest(".obs-transmis")){
@@ -2421,7 +2479,7 @@ document.addEventListener("click", e => {
 
   if (e.target.closest(".obs-tout")){
     const restant = lireObservations().filter(o => !o.transmis);
-    copierTexte(restant.map(texteObsenmer).join("\n\n———\n\n"), e.target);
+    transmettre(restant.map(texteObsenmer).join("\n\n———\n\n"), e.target);
   }
 });
 
