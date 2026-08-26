@@ -772,6 +772,59 @@ body.plein-carte .maplibregl-ctrl-bottom-left{margin-bottom:76px}
 .fiche-bateau input:focus{outline:3px solid rgba(255,197,49,.7);outline-offset:1px}
 .mini-note{font-size:11.5px;color:var(--encre-2);line-height:1.45;margin-top:2px}
 
+/* ---------- Signaler une observation ---------- */
+.signalement{padding:16px 18px}
+.genres-obs{display:grid;grid-template-columns:repeat(auto-fill,minmax(94px,1fr));gap:8px}
+.genre-obs{
+  display:flex;flex-direction:column;align-items:center;gap:4px;
+  padding:11px 6px;border-radius:16px;
+  background:var(--verre-fort);border:1px solid var(--bord);
+  box-shadow:none;color:var(--encre);
+  font-size:11.5px;font-weight:600;line-height:1.2;text-align:center;
+}
+.genre-obs span{font-size:21px;line-height:1}
+.genre-obs:active{transform:scale(.95)}
+.etat-obs{font-size:13px;font-weight:600;color:#0E7A47;margin-top:12px;min-height:19px}
+
+.liste-obs{padding:0 18px;margin-top:14px}
+.liste-obs:empty{display:none}
+.carte-obs{padding:14px 0;border-top:1px solid var(--bord)}
+.carte-obs:first-child{border-top:none}
+.obs-titre{display:flex;align-items:baseline;gap:8px}
+.obs-titre b{font-size:15px;letter-spacing:-.01em}
+.obs-titre span{font-size:12px;color:var(--encre-2)}
+.obs-lieu{font-size:12.5px;color:var(--encre-2);margin-top:2px;font-variant-numeric:tabular-nums}
+.obs-champs{display:flex;gap:8px;margin-top:9px}
+.obs-champs input{
+  font:inherit;font-size:15px;padding:8px 12px;
+  border:1px solid var(--bord);border-radius:11px;
+  background:var(--verre-fort);color:var(--encre);min-width:0;
+}
+.obs-champs .obs-nb{width:88px;flex:0 0 auto}
+.obs-champs .obs-note{flex:1 1 auto}
+.obs-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.obs-actions button{
+  font-size:12.5px;font-weight:600;padding:7px 13px;border-radius:100px;
+  background:var(--verre-fort);border:1px solid var(--bord);
+  box-shadow:none;color:var(--encre);
+}
+.obs-actions button.principal{background:var(--bleu);border-color:var(--bleu);color:#fff}
+.obs-actions a{
+  display:inline-flex;align-items:center;font-size:12.5px;font-weight:600;
+  padding:7px 13px;border-radius:100px;text-decoration:none;
+  background:var(--verre-fort);border:1px solid var(--bord);color:var(--bleu);
+}
+.carte-obs.transmis{opacity:.6}
+.obs-marque{
+  display:inline-block;margin-top:6px;padding:3px 10px;border-radius:100px;
+  font-size:11.5px;font-weight:700;background:rgba(23,160,95,.15);color:#0E7A47;
+}
+.obs-secours{
+  margin-top:8px;padding:8px 12px;border-radius:13px;
+  background:rgba(201,58,42,.12);color:#96281B;
+  font-size:12.5px;font-weight:600;line-height:1.35;
+}
+
 /* ---------- Les réserves du bord ---------- */
 .jauges{padding:6px 18px 16px;display:flex;flex-direction:column}
 .jauge{display:flex;align-items:center;gap:16px;padding:14px 0;border-top:1px solid var(--bord)}
@@ -1222,6 +1275,34 @@ body.en-alarme .bloc-alerte{
         Le point d'ancrage sera ta position à cet instant.
       </div>
     </div>
+
+    <div class="section-titre"><h2>Signaler une observation</h2><span>pour OBSenMER</span></div>
+    <div class="bloc signalement">
+      <div class="genres-obs" id="genres-obs"></div>
+      <p class="mini-note">Une touche suffit : l'heure, la position et les conditions
+         partent avec le signalement. Ça marche sans réseau — la transmission attendra
+         que tu en aies.</p>
+      <div class="etat-obs" id="etat-obs"></div>
+    </div>
+
+    <div class="bloc liste-obs" id="liste-obs"></div>
+
+    <details class="outil" id="aide-obsenmer">
+      <summary>Comment ça arrive chez OBSenMER</summary>
+      <p><b>Pas automatiquement, et ce n'est pas de mon fait.</b> OBSenMER n'ouvre pas
+         d'API publique : aucun outil tiers ne peut déposer une observation à ta place.
+         mynav fait donc la moitié du travail qui t'ennuie — noter l'heure juste, la
+         position exacte et les conditions au moment où tu vois la bête — et te prépare
+         le texte à coller.</p>
+      <p>Touche <b>Copier</b> sur un signalement, puis <b>Ouvrir OBSenMER</b> : le
+         formulaire s'ouvre, tu colles, tu valides. Marque ensuite le signalement comme
+         transmis pour savoir ce qu'il te reste à saisir.</p>
+      <p>Leur application mobile enregistre aussi hors réseau et reste la voie la plus
+         directe. mynav est utile quand tu es déjà dedans, ou pour ressaisir au calme
+         une série d'observations en rentrant.</p>
+      <p class="mini-note">Les observations transmises à OBSenMER sont partagées sous
+         licence Creative Commons BY-NC, et visibles sur leur carte publique sous 24 h.</p>
+    </details>
 
     <div class="section-titre"><h2>Réserves du bord</h2><span>eau, carburant, servitude</span></div>
     <div class="bloc jauges" id="jauges"></div>
@@ -2148,6 +2229,223 @@ function ficheBateau(){
   if (tirant > 0)       f.tirant_eau_m = tirant;
   if (skipper)          f.skipper = skipper;
   return Object.keys(f).length ? f : null;
+}
+
+/* ==========================================================
+   SIGNALER UNE OBSERVATION
+   ----------------------------------------------------------
+   Un dauphin, une tortue, un filet fantôme, une nappe. Ce qui
+   fait rater le signalement, ce n'est pas l'envie : c'est de
+   devoir noter l'heure et la position pendant que le bateau
+   avance. Une touche, et tout est pris.
+
+   OBSenMER n'ouvre pas d'API publique : personne ne peut y
+   déposer une observation à la place de l'observateur. On
+   prépare donc le texte, et l'utilisateur le colle chez eux.
+   ========================================================== */
+
+const OBSENMER = "https://www.obsenmer.org/observations/preadd";
+
+const GENRES_OBS = [
+  {cle:"dauphins",   nom:"Dauphins",   signe:"🐬", compte:true},
+  {cle:"baleine",    nom:"Baleine",    signe:"🐋", compte:true},
+  {cle:"tortue",     nom:"Tortue",     signe:"🐢", compte:true},
+  {cle:"poisson",    nom:"Poisson, raie", signe:"🐟", compte:true},
+  {cle:"oiseau",     nom:"Oiseau",     signe:"🐦", compte:true},
+  {cle:"meduse",     nom:"Méduses",    signe:"🪼", compte:false},
+  {cle:"dechet",     nom:"Déchet",     signe:"🥤", compte:false},
+  {cle:"filet",      nom:"Filet, engin", signe:"🪢", compte:false},
+  {cle:"pollution",  nom:"Pollution",  signe:"🛢", compte:false},
+  {cle:"difficulte", nom:"En difficulté", signe:"⚠️", compte:true}
+];
+
+const genreObs = cle => GENRES_OBS.find(g => g.cle === cle);
+
+function lireObservations(){
+  try { return JSON.parse(localStorage.getItem("mynav-observations") || "[]"); }
+  catch (e){ return []; }
+}
+
+function ecrireObservations(liste){
+  try { localStorage.setItem("mynav-observations", JSON.stringify(liste)); } catch (e){}
+}
+
+/* Une touche = une observation datée et située. Le détail se
+   remplit après, quand la manœuvre est finie. */
+function signaler(cle){
+  const g = genreObs(cle);
+  if (!g) return;
+
+  const liste = lireObservations();
+  liste.unshift({
+    id: Date.now(),
+    quand: new Date().toISOString(),
+    genre: cle,
+    effectif: null,
+    note: "",
+    lieu: $("lieu")?.textContent || "",
+    conditions: conditionsDuMoment(),
+    transmis: false
+  });
+  ecrireObservations(liste);
+  afficherObservations();
+
+  const etat = $("etat-obs");
+  if (etat){
+    const pos = positionActuelle();
+    etat.textContent = `${g.nom} — noté à ${heureDite(Date.now())}` +
+      (pos ? `, position prise.` : `, sans position : le GPS ne répond pas.`);
+    clearTimeout(etat.minuterie);
+    etat.minuterie = setTimeout(() => { etat.textContent = ""; }, 6000);
+  }
+}
+
+function majObservation(id, champ, valeur){
+  const liste = lireObservations();
+  const o = liste.find(x => x.id === id);
+  if (!o) return;
+  o[champ] = valeur;
+  ecrireObservations(liste);
+}
+
+function effacerObservation(id){
+  ecrireObservations(lireObservations().filter(o => o.id !== id));
+  afficherObservations();
+}
+
+// Le texte à coller dans le formulaire d'OBSenMER.
+function texteObsenmer(o){
+  const g = genreObs(o.genre);
+  const d = new Date(o.quand);
+  const c = o.conditions;
+  const l = [];
+
+  l.push(`Observation : ${g ? g.nom : o.genre}`);
+  if (o.effectif) l.push(`Effectif : ${o.effectif}`);
+  l.push(`Date : ${d.toLocaleDateString("fr-FR")} à ${d.toLocaleTimeString("fr-FR",
+    {hour:"2-digit", minute:"2-digit"})} (${d.toISOString().slice(11,16)} UTC)`);
+
+  if (c && c.lat !== undefined){
+    l.push(`Position : ${c.lat.toFixed(5)}, ${c.lon.toFixed(5)}`);
+    l.push(`           ${coord(c.lat,"lat")} ${coord(c.lon,"lon")}`);
+  } else {
+    l.push("Position : non enregistrée");
+  }
+
+  if (o.lieu) l.push(`Secteur : ${o.lieu}`);
+  if (c) l.push(`Conditions : vent de ${c.de} à ${c.vent} nœuds, rafales ${c.rafales}, ` +
+                `force ${c.beaufort}, ${c.pression} hPa`);
+  if (o.note) l.push(`Remarque : ${o.note}`);
+  l.push("Relevé avec mynav");
+  return l.join("\n");
+}
+
+async function copierTexte(texte, bouton, motDit){
+  try {
+    await navigator.clipboard.writeText(texte);
+    if (bouton){ const av = bouton.textContent; bouton.textContent = motDit || "Copié ✓";
+      setTimeout(() => { bouton.textContent = av; }, 2500); }
+    return true;
+  } catch (e){
+    // Safari refuse parfois le presse-papiers : on montre le texte à copier soi-même.
+    window.prompt("Copie ce texte pour OBSenMER :", texte);
+    return false;
+  }
+}
+
+function afficherObservations(){
+  const zone = $("liste-obs");
+  if (!zone) return;
+
+  const liste = lireObservations();
+  if (!liste.length){ zone.innerHTML = ""; return; }
+
+  const aTransmettre = liste.filter(o => !o.transmis).length;
+
+  zone.innerHTML = liste.map(o => {
+    const g = genreObs(o.genre) || {nom:o.genre, signe:"•", compte:false};
+    const d = new Date(o.quand);
+    const c = o.conditions;
+    const place = c && c.lat !== undefined
+      ? `${coord(c.lat,"lat")} ${coord(c.lon,"lon")}`
+      : "position non enregistrée";
+
+    return `<div class="carte-obs${o.transmis ? " transmis" : ""}" data-id="${o.id}">
+      <div class="obs-titre">
+        <b>${g.signe} ${g.nom}</b>
+        <span>${d.toLocaleDateString("fr-FR")} à ${d.toLocaleTimeString("fr-FR",
+          {hour:"2-digit", minute:"2-digit"})}</span>
+      </div>
+      <div class="obs-lieu">${place}${o.lieu ? " · " + o.lieu : ""}</div>
+      ${o.genre === "difficulte" ? `<div class="obs-secours">Animal en difficulté ou
+        échoué : préviens le CROSS sur la VHF 16. Un signalement OBSenMER ne déclenche
+        aucun secours.</div>` : ""}
+      <div class="obs-champs">
+        ${g.compte ? `<input class="obs-nb" type="number" min="1" max="9999"
+           placeholder="combien" value="${o.effectif ?? ""}"
+           aria-label="Effectif observé">` : ""}
+        <input class="obs-note" type="text" placeholder="remarque"
+           value="${(o.note || "").replace(/"/g, "&quot;")}" aria-label="Remarque">
+      </div>
+      <div class="obs-actions">
+        <button class="obs-copier principal">Copier</button>
+        <a href="${OBSENMER}" target="_blank" rel="noopener">Ouvrir OBSenMER →</a>
+        <button class="obs-transmis">${o.transmis ? "À ressaisir" : "Transmis ✓"}</button>
+        <button class="obs-effacer">Effacer</button>
+      </div>
+      ${o.transmis ? `<span class="obs-marque">transmis à OBSenMER</span>` : ""}
+    </div>`;
+  }).join("") + (aTransmettre > 1
+    ? `<div class="obs-actions" style="padding:14px 0 16px">
+         <button class="obs-tout principal">Copier les ${aTransmettre} signalements</button>
+       </div>` : "");
+}
+
+// Les cartes sont refaites à chaque changement : on écoute au-dessus.
+document.addEventListener("click", e => {
+  const carte = e.target.closest(".carte-obs");
+  const id = carte ? +carte.dataset.id : null;
+
+  if (e.target.closest(".obs-copier")){
+    const o = lireObservations().find(x => x.id === id);
+    if (o) copierTexte(texteObsenmer(o), e.target);
+    return;
+  }
+  if (e.target.closest(".obs-transmis")){
+    const liste = lireObservations();
+    const o = liste.find(x => x.id === id);
+    if (o){ o.transmis = !o.transmis; ecrireObservations(liste); afficherObservations(); }
+    return;
+  }
+  if (e.target.closest(".obs-effacer")){ if (id) effacerObservation(id); return; }
+
+  if (e.target.closest(".obs-tout")){
+    const restant = lireObservations().filter(o => !o.transmis);
+    copierTexte(restant.map(texteObsenmer).join("\n\n———\n\n"), e.target);
+  }
+});
+
+document.addEventListener("input", e => {
+  const carte = e.target.closest(".carte-obs");
+  if (!carte) return;
+  const id = +carte.dataset.id;
+  if (e.target.classList.contains("obs-nb"))
+    majObservation(id, "effectif", e.target.value ? +e.target.value : null);
+  if (e.target.classList.contains("obs-note"))
+    majObservation(id, "note", e.target.value.trim());
+});
+
+function construireGenresObs(){
+  const zone = $("genres-obs");
+  if (!zone || zone.dataset.pret) return;
+  zone.innerHTML = GENRES_OBS.map(g =>
+    `<button class="genre-obs" data-genre="${g.cle}"><span>${g.signe}</span>${g.nom}</button>`
+  ).join("");
+  zone.addEventListener("click", e => {
+    const b = e.target.closest(".genre-obs");
+    if (b) signaler(b.dataset.genre);
+  });
+  zone.dataset.pret = "1";
 }
 
 /* ==========================================================
@@ -5524,6 +5822,8 @@ chargerBateau();
 chargerReserves();
 construireJauges();
 peindreJauges();
+construireGenresObs();
+afficherObservations();
 chargerBase();
 demanderPosition();
 </script>
