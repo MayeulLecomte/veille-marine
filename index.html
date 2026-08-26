@@ -1300,11 +1300,14 @@ body.en-alarme .bloc-alerte{
          mynav fait donc la moitié du travail qui t'ennuie — noter l'heure juste, la
          position exacte et les conditions au moment où tu vois la bête — et te prépare
          le texte à coller.</p>
-      <p>Touche <b>Partager</b> sur un signalement : la feuille de partage de l'iPhone
-         s'ouvre, et tu l'envoies où tu veux — l'application OBSenMER, un courriel, tes
-         notes. Sur un ordinateur, le signalement part simplement dans le presse-papiers.
-         <b>Ouvrir OBSenMER</b> te mène ensuite à leur formulaire, et tu marques le
-         signalement comme transmis pour savoir ce qu'il te reste à saisir.</p>
+      <p><b>Copier et ouvrir OBSenMER</b> fait tout d'un coup : le signalement part
+         dans le presse-papiers et leur formulaire s'ouvre. Tu n'as plus qu'à coller,
+         valider, puis marquer le signalement comme transmis pour savoir ce qu'il te
+         reste à saisir.</p>
+      <p><b>Partager</b> sert à l'envoyer ailleurs — tes notes, un courriel, un message
+         à un équipier. Leur application n'apparaît pas dans la feuille de partage de
+         l'iPhone : elle ne déclare pas accepter de texte partagé, et une page web n'y
+         peut rien.</p>
       <p>Leur application mobile enregistre aussi hors réseau et reste la voie la plus
          directe. mynav est utile quand tu es déjà dedans, ou pour ressaisir au calme
          une série d'observations en rentrant.</p>
@@ -2447,7 +2450,7 @@ function afficherObservations(){
       </div>
       <div class="obs-actions">
         <button class="obs-partager principal">${peutPartager() ? "Partager" : "Copier"}</button>
-        <a href="${OBSENMER}" target="_blank" rel="noopener">Ouvrir OBSenMER →</a>
+        <a class="obs-ouvrir" href="${OBSENMER}" target="_blank" rel="noopener">Copier et ouvrir OBSenMER →</a>
         <button class="obs-transmis">${o.transmis ? "À ressaisir" : "Transmis ✓"}</button>
         <button class="obs-effacer">Effacer</button>
       </div>
@@ -2467,6 +2470,14 @@ document.addEventListener("click", e => {
   if (e.target.closest(".obs-partager")){
     const o = lireObservations().find(x => x.id === id);
     if (o) transmettre(texteObsenmer(o), e.target);
+    return;
+  }
+  /* Le lien suit son cours — surtout pas de preventDefault : la
+     copie doit se faire pendant que le formulaire s'ouvre, pour que
+     le texte attende déjà dans le presse-papiers à l'arrivée. */
+  if (e.target.closest(".obs-ouvrir")){
+    const o = lireObservations().find(x => x.id === id);
+    if (o) copierTexte(texteObsenmer(o));
     return;
   }
   if (e.target.closest(".obs-transmis")){
