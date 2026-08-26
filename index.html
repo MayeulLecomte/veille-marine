@@ -814,11 +814,7 @@ body.plein-carte .maplibregl-ctrl-bottom-left{margin-bottom:76px}
   padding:7px 13px;border-radius:100px;text-decoration:none;
   background:var(--verre-fort);border:1px solid var(--bord);color:var(--bleu);
 }
-.carte-obs.transmis{opacity:.6}
-.obs-marque{
-  display:inline-block;margin-top:6px;padding:3px 10px;border-radius:100px;
-  font-size:11.5px;font-weight:700;background:rgba(23,160,95,.15);color:#0E7A47;
-}
+.obs-actions a.principal{background:var(--bleu);border-color:var(--bleu);color:#fff}
 .obs-brut{
   display:block;width:100%;height:118px;margin-top:8px;
   font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;
@@ -1301,13 +1297,8 @@ body.en-alarme .bloc-alerte{
          position exacte et les conditions au moment où tu vois la bête — et te prépare
          le texte à coller.</p>
       <p><b>Copier et ouvrir OBSenMER</b> fait tout d'un coup : le signalement part
-         dans le presse-papiers et leur formulaire s'ouvre. Tu n'as plus qu'à coller,
-         valider, puis marquer le signalement comme transmis pour savoir ce qu'il te
-         reste à saisir.</p>
-      <p><b>Partager</b> sert à l'envoyer ailleurs — tes notes, un courriel, un message
-         à un équipier. Leur application n'apparaît pas dans la feuille de partage de
-         l'iPhone : elle ne déclare pas accepter de texte partagé, et une page web n'y
-         peut rien.</p>
+         dans le presse-papiers et leur formulaire s'ouvre. Tu n'as plus qu'à coller et
+         valider, puis effacer le signalement une fois saisi.</p>
       <p>Leur application mobile enregistre aussi hors réseau et reste la voie la plus
          directe. mynav est utile quand tu es déjà dedans, ou pour ressaisir au calme
          une série d'observations en rentrant.</p>
@@ -2289,8 +2280,7 @@ function signaler(cle){
     effectif: null,
     note: "",
     lieu: $("lieu")?.textContent || "",
-    conditions: conditionsDuMoment(),
-    transmis: false
+    conditions: conditionsDuMoment()
   });
   ecrireObservations(liste);
   afficherObservations();
@@ -2343,28 +2333,6 @@ function texteObsenmer(o){
   if (o.note) l.push(`Remarque : ${o.note}`);
   l.push("Relevé avec mynav");
   return l.join("\n");
-}
-
-/* iOS sait faire mieux qu'un copier-coller : la feuille de partage
-   envoie le signalement là où l'utilisateur veut — l'application
-   OBSenMER, un courriel, ses notes. Quand elle n'existe pas, on
-   retombe sur le presse-papiers sans rien dire. */
-const peutPartager = () => typeof navigator.share === "function";
-
-async function transmettre(texte, bouton){
-  if (peutPartager()){
-    try {
-      // Appelé sans await préalable : la feuille de partage exige
-      // que le geste de l'utilisateur soit encore « frais ».
-      await navigator.share({title: "Observation en mer", text: texte});
-      direSurLeBouton(bouton, "Partagé ✓");
-      return "partage";
-    } catch (e){
-      // Feuille refermée : ce n'est pas une panne, on n'insiste pas.
-      if (e && e.name === "AbortError") return "annule";
-    }
-  }
-  return await copierTexte(texte, bouton) ? "copie" : "manuel";
 }
 
 function direSurLeBouton(bouton, mot){
@@ -2421,8 +2389,6 @@ function afficherObservations(){
   const liste = lireObservations();
   if (!liste.length){ zone.innerHTML = ""; return; }
 
-  const aTransmettre = liste.filter(o => !o.transmis).length;
-
   zone.innerHTML = liste.map(o => {
     const g = genreObs(o.genre) || {nom:o.genre, signe:"•", compte:false};
     const d = new Date(o.quand);
@@ -2431,7 +2397,7 @@ function afficherObservations(){
       ? `${coord(c.lat,"lat")} ${coord(c.lon,"lon")}`
       : "position non enregistrée";
 
-    return `<div class="carte-obs${o.transmis ? " transmis" : ""}" data-id="${o.id}">
+    return `<div class="carte-obs" data-id="${o.id}">
       <div class="obs-titre">
         <b>${g.signe} ${g.nom}</b>
         <span>${d.toLocaleDateString("fr-FR")} à ${d.toLocaleTimeString("fr-FR",
@@ -2449,17 +2415,12 @@ function afficherObservations(){
            value="${(o.note || "").replace(/"/g, "&quot;")}" aria-label="Remarque">
       </div>
       <div class="obs-actions">
-        <button class="obs-partager principal">${peutPartager() ? "Partager" : "Copier"}</button>
-        <a class="obs-ouvrir" href="${OBSENMER}" target="_blank" rel="noopener">Copier et ouvrir OBSenMER →</a>
-        <button class="obs-transmis">${o.transmis ? "À ressaisir" : "Transmis ✓"}</button>
+        <a class="obs-ouvrir principal" href="${OBSENMER}" target="_blank"
+           rel="noopener">Copier et ouvrir OBSenMER →</a>
         <button class="obs-effacer">Effacer</button>
       </div>
-      ${o.transmis ? `<span class="obs-marque">transmis à OBSenMER</span>` : ""}
     </div>`;
-  }).join("") + (aTransmettre > 1
-    ? `<div class="obs-actions" style="padding:14px 0 16px">
-         <button class="obs-tout principal">${peutPartager() ? "Partager" : "Copier"} les ${aTransmettre} signalements</button>
-       </div>` : "");
+  }).join("");
 }
 
 // Les cartes sont refaites à chaque changement : on écoute au-dessus.
@@ -2467,11 +2428,6 @@ document.addEventListener("click", e => {
   const carte = e.target.closest(".carte-obs");
   const id = carte ? +carte.dataset.id : null;
 
-  if (e.target.closest(".obs-partager")){
-    const o = lireObservations().find(x => x.id === id);
-    if (o) transmettre(texteObsenmer(o), e.target);
-    return;
-  }
   /* Le lien suit son cours — surtout pas de preventDefault : la
      copie doit se faire pendant que le formulaire s'ouvre, pour que
      le texte attende déjà dans le presse-papiers à l'arrivée. */
@@ -2480,18 +2436,7 @@ document.addEventListener("click", e => {
     if (o) copierTexte(texteObsenmer(o));
     return;
   }
-  if (e.target.closest(".obs-transmis")){
-    const liste = lireObservations();
-    const o = liste.find(x => x.id === id);
-    if (o){ o.transmis = !o.transmis; ecrireObservations(liste); afficherObservations(); }
-    return;
-  }
-  if (e.target.closest(".obs-effacer")){ if (id) effacerObservation(id); return; }
-
-  if (e.target.closest(".obs-tout")){
-    const restant = lireObservations().filter(o => !o.transmis);
-    transmettre(restant.map(texteObsenmer).join("\n\n———\n\n"), e.target);
-  }
+  if (e.target.closest(".obs-effacer")){ if (id) effacerObservation(id); }
 });
 
 document.addEventListener("input", e => {
