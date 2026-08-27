@@ -2242,8 +2242,14 @@ function ficheBateau(){
 
 const OBSENMER = "https://www.obsenmer.org/observations/preadd";
 
+/* Le champ « alerte » porte ce qu'il faut faire tout de suite. Une
+   orque contre un safran et un animal échoué ne sont pas de simples
+   observations : ce sont des situations où l'on agit avant de saisir. */
 const GENRES_OBS = [
   {cle:"dauphins",   nom:"Dauphins",   signe:"🐬", compte:true},
+  {cle:"orque",      nom:"Orques",     signe:"🐳", compte:true,
+   alerte:"En cas d'interaction avec le bateau : arrête, affale, laisse la barre libre " +
+          "et fais profil bas — c'est le protocole du GTOA. Préviens le CROSS sur la VHF 16."},
   {cle:"baleine",    nom:"Baleine",    signe:"🐋", compte:true},
   {cle:"tortue",     nom:"Tortue",     signe:"🐢", compte:true},
   {cle:"poisson",    nom:"Poisson, raie", signe:"🐟", compte:true},
@@ -2252,7 +2258,9 @@ const GENRES_OBS = [
   {cle:"dechet",     nom:"Déchet",     signe:"🥤", compte:false},
   {cle:"filet",      nom:"Filet, engin", signe:"🪢", compte:false},
   {cle:"pollution",  nom:"Pollution",  signe:"🛢", compte:false},
-  {cle:"difficulte", nom:"En difficulté", signe:"⚠️", compte:true}
+  {cle:"difficulte", nom:"En difficulté", signe:"⚠️", compte:true,
+   alerte:"Animal en difficulté ou échoué : préviens le CROSS sur la VHF 16. " +
+          "Un signalement OBSenMER ne déclenche aucun secours."}
 ];
 
 const genreObs = cle => GENRES_OBS.find(g => g.cle === cle);
@@ -2404,9 +2412,7 @@ function afficherObservations(){
           {hour:"2-digit", minute:"2-digit"})}</span>
       </div>
       <div class="obs-lieu">${place}${o.lieu ? " · " + o.lieu : ""}</div>
-      ${o.genre === "difficulte" ? `<div class="obs-secours">Animal en difficulté ou
-        échoué : préviens le CROSS sur la VHF 16. Un signalement OBSenMER ne déclenche
-        aucun secours.</div>` : ""}
+      ${g.alerte ? `<div class="obs-secours">${g.alerte}</div>` : ""}
       <div class="obs-champs">
         ${g.compte ? `<input class="obs-nb" type="number" min="1" max="9999"
            placeholder="combien" value="${o.effectif ?? ""}"
