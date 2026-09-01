@@ -972,6 +972,95 @@ body.plein-carte .maplibregl-ctrl-bottom-left{margin-bottom:76px}
 .compte-entrees{font-size:12.5px;color:var(--encre-2)}
 .journal-vide{font-size:14px;color:var(--encre-2);text-align:center;padding:20px 10px;line-height:1.5}
 
+/* ---------- Le relevé de quart ----------
+   Une fiche que l'on remplit d'un pouce : l'heure, la position,
+   le vent, la houle, puis les postes du bord que l'on coche. */
+.lien-quand{
+  background:none;box-shadow:none;padding:0 0 0 8px;
+  color:var(--bleu);font-size:13px;font-weight:600;
+}
+.quand-libre{display:flex;flex-direction:column;gap:4px;font-size:12.5px;color:var(--encre-2)}
+.quand-libre input{
+  font:inherit;font-size:16px;padding:9px 12px;
+  border:1px solid var(--bord);border-radius:12px;
+  background:var(--verre-fort);color:var(--encre);
+}
+.fiche-quart{border-top:1px solid rgba(10,54,82,.10);padding-top:12px}
+.fiche-quart>summary{
+  cursor:pointer;list-style:none;display:flex;align-items:baseline;gap:8px;
+  font-size:13.5px;font-weight:700;color:var(--encre);
+}
+.fiche-quart>summary::-webkit-details-marker{display:none}
+.fiche-quart>summary small{font-size:11.5px;font-weight:400;color:var(--encre-2)}
+.fiche-quart>summary::after{content:"+";margin-left:auto;color:var(--encre-2);font-size:17px;line-height:1}
+.fiche-quart[open]>summary::after{content:"–"}
+.releve-champs{display:flex;flex-direction:column;gap:11px;margin-top:14px}
+.releve-champs label{display:flex;flex-direction:column;gap:4px;font-size:12.5px;color:var(--encre-2)}
+.releve-champs input,.releve-champs textarea{
+  font:inherit;font-size:16px;padding:9px 12px;width:100%;
+  border:1px solid var(--bord);border-radius:12px;
+  background:var(--verre-fort);color:var(--encre);
+}
+.releve-champs textarea{line-height:1.45;resize:vertical}
+.releve-champs input:focus,.releve-champs textarea:focus{
+  outline:3px solid rgba(255,197,49,.7);outline-offset:1px;
+}
+.duo{display:flex;gap:10px}
+.duo label{flex:1 1 0;min-width:0}
+.controles-titre{
+  font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--encre-2);margin-top:6px;
+}
+.ligne-controle{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  padding:9px 0;border-top:1px solid rgba(10,54,82,.08);
+}
+.nom-controle{flex:0 0 auto;font-size:14px;font-weight:600;color:var(--encre)}
+.jauge-dit{flex:1 1 100%;order:3;font-size:11px;color:var(--encre-2)}
+.segments{
+  display:flex;margin-left:auto;background:var(--verre-fort);
+  border:1px solid var(--bord);border-radius:11px;overflow:hidden;
+}
+.segments label{position:relative;flex:0 0 auto}
+.segments input{position:absolute;opacity:0;pointer-events:none}
+.segments span{
+  display:block;padding:7px 11px;font-size:12.5px;font-weight:600;
+  color:var(--encre-2);cursor:pointer;border-left:1px solid rgba(10,54,82,.10);
+}
+.segments label:first-child span{border-left:none}
+.segments input:checked+span{background:rgba(10,54,82,.13);color:var(--encre)}
+.segments input[value=ok]:checked+span{background:#17A05F}
+.segments input[value=bas]:checked+span{background:#C93A2A}
+.segments input[value=fait]:checked+span{background:var(--bleu)}
+.segments input:focus-visible+span{outline:3px solid rgba(10,132,255,.45);outline-offset:-3px}
+
+/* Le relevé, tel qu'il se relit dans le journal */
+.entree .releve{
+  margin-top:9px;padding:10px 13px;border-radius:14px;
+  background:rgba(255,255,255,.42);border:1px solid rgba(255,255,255,.7);
+}
+.entree .releve-ligne{display:flex;gap:10px;font-size:14px;line-height:1.5;padding:1px 0}
+.entree .releve-ligne span{flex:0 0 76px;font-size:12.5px;color:var(--encre-2)}
+.entree .releve-ligne b{flex:1 1 auto;font-weight:600;font-variant-numeric:tabular-nums}
+.pastilles{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
+.pastille-n{
+  font-size:11.5px;font-weight:600;padding:4px 9px;border-radius:9px;
+  background:rgba(10,54,82,.07);color:var(--encre-2);
+}
+.pastille-n.ok  {background:rgba(23,160,95,.16);color:#0E6B3E}
+.pastille-n.bas {background:rgba(201,58,42,.16);color:#96281B}
+.pastille-n.fait{background:rgba(10,132,255,.15);color:#0A5A9C}
+.actions-entree{display:flex;gap:18px;align-items:baseline;margin-top:2px}
+.entree .modifier{
+  background:none;box-shadow:none;color:var(--bleu);
+  font-size:12.5px;font-weight:600;padding:6px 0 0;
+}
+.entree.en-edition{border-color:rgba(10,132,255,.45);box-shadow:0 8px 28px rgba(10,132,255,.16)}
+.entree.en-edition .fiche-quart{margin-top:12px}
+.edition-actions{display:flex;gap:10px;margin-top:15px}
+.edition-actions button{flex:1 1 0}
+.edition-actions .annuler{background:rgba(10,54,82,.08);color:var(--encre);box-shadow:none}
+
 /* Quand l'alarme sonne, l'écran le dit aussi : le son peut être
    coupé par le bouton silencieux, la couleur non. */
 @keyframes battement{
@@ -1401,9 +1490,18 @@ body.en-alarme .bloc-alerte{
          d'application. Garde mynav ouvert pendant la navigation.</p>
 
       <div class="bloc redaction">
-        <div class="jour-du">Aujourd'hui, <span id="jour-date">—</span></div>
+        <div class="jour-du">Aujourd'hui, <span id="jour-date">—</span><button
+           type="button" class="lien-quand" id="btn-quand">changer la date</button></div>
+        <label class="quand-libre masque" id="quand-libre">Date et heure de l'entrée
+          <input type="datetime-local" id="fq-quand" data-auto="1"></label>
         <textarea id="jour-texte" rows="4"
           placeholder="Ce que tu as fait, vu, appris. Le mouillage, la manœuvre, la rencontre…"></textarea>
+
+        <details class="fiche-quart" id="fiche-quart">
+          <summary>Relevé de quart <small>position, vent, houle, niveaux</small></summary>
+          <div class="releve-champs" id="fq-champs"></div>
+        </details>
+
         <div class="jour-conditions" id="jour-conditions">Les conditions du moment seront enregistrées avec l'entrée.</div>
         <button id="btn-journal">Inscrire au journal</button>
       </div>
@@ -5206,8 +5304,12 @@ function lireJournal(){
   catch (e){ return []; }
 }
 
+/* On range à l'écriture, jamais à la lecture : une date reprise
+   après coup remet d'elle-même l'entrée à sa place, la plus
+   récente en tête. */
 function ecrireJournal(liste){
-  try { localStorage.setItem("mynav-journal", JSON.stringify(liste)); } catch (e){}
+  const rangee = liste.slice().sort((a, b) => new Date(b.quand) - new Date(a.quand));
+  try { localStorage.setItem("mynav-journal", JSON.stringify(rangee)); } catch (e){}
 }
 
 // Les conditions à l'instant où l'on écrit
@@ -5235,28 +5337,313 @@ function resumeConditions(c){
   return t;
 }
 
+/* Les postes que l'on vérifie avant de partir, et que le relevé
+   garde en mémoire. Les trois qui ont une jauge sur l'accueil en
+   rappellent la valeur — sans jamais cocher à la place du skipper :
+   une jauge n'est pas un contrôle, un coup d'œil en cale l'est. */
+const CONTROLES = [
+  {cle:"carburant", nom:"Carburant",    reserve:"carburant"},
+  {cle:"huile",     nom:"Huile moteur"},
+  {cle:"eau",       nom:"Eau douce",    reserve:"eau"},
+  {cle:"gaz",       nom:"Gaz"},
+  {cle:"batteries", nom:"Batteries",    reserve:"electricite"},
+  {cle:"cale",      nom:"Fond de cale"}
+];
+
+// Quatre états, dont le premier veut dire « je n'ai pas regardé ».
+const ETATS = [
+  {val:"",     court:"—",    dit:"non vérifié"},
+  {val:"ok",   court:"Bon",  dit:"bon"},
+  {val:"bas",  court:"Bas",  dit:"bas"},
+  {val:"fait", court:"Fait", dit:"fait"}
+];
+
+const echapperJournal = t => String(t ?? "").replace(/[<>&"]/g,
+  c => ({"<":"&lt;", ">":"&gt;", "&":"&amp;", '"':"&quot;"}[c]));
+
+// Une date telle que l'attend un champ « datetime-local », heure locale
+function pourChampDate(d){
+  const n = x => String(x).padStart(2, "0");
+  return `${d.getFullYear()}-${n(d.getMonth()+1)}-${n(d.getDate())}` +
+         `T${n(d.getHours())}:${n(d.getMinutes())}`;
+}
+
+// La position du moment, dite comme sur une carte
+function positionDite(){
+  const pos = positionActuelle();
+  return pos ? `${coord(pos.lat, "lat")} ${coord(pos.lng, "lon")}` : "";
+}
+
+// Ce que la jauge du bord affiche, en rappel sous la ligne du contrôle
+function jaugeDite(cle){
+  const e = etatReserves[cle];
+  if (!e || e.niveau === null || !e.capacite) return "";
+  const r = RESERVES.find(x => x.cle === cle);
+  const pc = Math.round(Math.max(0, Math.min(100, e.niveau / e.capacite * 100)));
+  return `jauge du bord : ${pc} % · ${nombreDit(e.niveau)} ${r ? r.unite : ""}`;
+}
+
+/* Les champs du relevé, les mêmes à l'écriture et à la
+   correction. « p » préfixe les identifiants pour que les deux
+   formulaires puissent vivre en même temps sur la page. */
+function formulaireReleve(p, e){
+  const r = e && e.releve ? e.releve : {};
+  const neuf = !e;   // à l'écriture, on propose ce que l'appareil sait
+
+  const pos = r.position ?? (neuf ? positionDite() : "");
+  const ventDe = r.vent?.de ?? (neuf && meteoCourante
+    ? aire(meteoCourante.current.wind_direction_10m) : "");
+  const ventNds = r.vent?.nds ?? (neuf && meteoCourante
+    ? Math.round(meteoCourante.current.wind_speed_10m) : "");
+  const houle = r.houle ?? (neuf && merDetail ? merDetail.hauteur_totale_m : "");
+
+  const lignes = CONTROLES.map(c => {
+    const choix = r.niveaux?.[c.cle] || "";
+    const segments = ETATS.map(s => `<label>
+          <input type="radio" name="${p}-n-${c.cle}" value="${s.val}"${
+            s.val === choix ? " checked" : ""} aria-label="${c.nom} : ${s.dit}">
+          <span>${s.court}</span></label>`).join("");
+    const dit = c.reserve ? jaugeDite(c.reserve) : "";
+    return `<div class="ligne-controle">
+        <span class="nom-controle">${c.nom}</span>
+        <div class="segments">${segments}</div>
+        ${dit ? `<span class="jauge-dit">${dit}</span>` : ""}
+      </div>`;
+  }).join("");
+
+  return `<label>Position
+      <input type="text" id="${p}-position" value="${echapperJournal(pos)}"
+             placeholder="39°32,1'N 3°12,4'E" autocomplete="off"></label>
+    <div class="duo">
+      <label>Vent — d'où
+        <input type="text" id="${p}-vent-de" value="${echapperJournal(ventDe)}"
+               placeholder="NE" autocomplete="off"></label>
+      <label>Vent — nœuds
+        <input type="number" id="${p}-vent-nds" value="${ventNds}"
+               placeholder="14" min="0" max="120" step="1" inputmode="numeric"></label>
+    </div>
+    <label>Houle en mètres
+      <input type="number" id="${p}-houle" value="${houle}"
+             placeholder="0.8" min="0" max="20" step="0.1" inputmode="decimal"></label>
+    <div class="controles-titre">Les niveaux du bord</div>
+    ${lignes}`;
+}
+
+// Ce que le formulaire a retenu, ou rien du tout
+function lireReleve(p){
+  const dit = suffixe => {
+    const el = $(`${p}-${suffixe}`);
+    return el ? el.value.trim() : "";
+  };
+  const r = {};
+
+  const pos = dit("position");
+  if (pos) r.position = pos;
+
+  const de = dit("vent-de"), nds = dit("vent-nds");
+  if (de || nds) r.vent = {de: de || null, nds: nds === "" ? null : +nds};
+
+  const h = dit("houle");
+  if (h !== "" && !isNaN(+h)) r.houle = +h;
+
+  const niveaux = {};
+  CONTROLES.forEach(c => {
+    const coche = document.querySelector(`input[name="${p}-n-${c.cle}"]:checked`);
+    if (coche && coche.value) niveaux[c.cle] = coche.value;
+  });
+  if (Object.keys(niveaux).length) r.niveaux = niveaux;
+
+  return Object.keys(r).length ? r : null;
+}
+
+/* La date choisie à la main. Tant que le champ n'a pas été
+   touché, c'est l'heure du moment qui vaut : une entrée écrite
+   trois heures après l'ouverture de l'onglet garde l'heure vraie. */
+function quandDit(p, defaut){
+  const el = $(`${p}-quand`);
+  if (el && el.value && !el.dataset.auto){
+    const d = new Date(el.value);
+    if (!isNaN(d)) return d.toISOString();
+  }
+  return defaut || new Date().toISOString();
+}
+
+// Le champ se souvient qu'on y a touché : on cesse alors de le remplir
+function brancherReleve(p, zone){
+  const touche = e => {
+    zone.dataset.touche = "1";
+    if (e.target && e.target.dataset && e.target.dataset.auto) delete e.target.dataset.auto;
+  };
+  zone.addEventListener("input", touche);
+  zone.addEventListener("change", touche);
+}
+
+function construireFicheQuart(neuve){
+  const zone = $("fq-champs");
+  if (!zone) return;
+  if (zone.dataset.pret && !neuve && zone.dataset.touche) return;
+
+  zone.innerHTML = formulaireReleve("fq", null);
+  delete zone.dataset.touche;
+  if (!zone.dataset.pret){
+    zone.dataset.pret = "1";
+    brancherReleve("fq", zone);
+  }
+}
+
 function ajouterEntree(){
   const zone = $("jour-texte");
   const texte = zone.value.trim();
-  if (!texte) return;
 
-  const liste = lireJournal();
-  liste.unshift({
+  /* Les champs du relevé se remplissent tout seuls avec ce que
+     l'appareil sait : on ne les garde que si le marin a ouvert la
+     fiche. Sans cela, chaque note traînerait un relevé qu'elle
+     n'a pas voulu. */
+  const fiche = $("fiche-quart");
+  const champs = $("fq-champs");
+  const voulu = !!(fiche?.open || champs?.dataset.touche);
+  const releve = voulu ? lireReleve("fq") : null;
+  if (!texte && !releve) return;
+
+  const entree = {
     id: Date.now(),
-    quand: new Date().toISOString(),
+    quand: quandDit("fq"),
     lieu: $("lieu")?.textContent || "",
     texte,
     conditions: conditionsDuMoment()
-  });
+  };
+  if (releve) entree.releve = releve;
+
+  const liste = lireJournal();
+  liste.push(entree);
   ecrireJournal(liste);
 
   zone.value = "";
+  if (fiche) fiche.open = false;
+  const libre = $("quand-libre");
+  if (libre) libre.classList.add("masque");
+  const champQuand = $("fq-quand");
+  if (champQuand){ champQuand.value = ""; champQuand.dataset.auto = "1"; }
+  construireFicheQuart(true);
   afficherJournal();
 }
 
 function effacerEntree(id){
   ecrireJournal(lireJournal().filter(e => e.id !== id));
+  if (entreeModifiee === id) entreeModifiee = null;
   afficherJournal();
+}
+
+/* ----------------------------------------------------------
+   CORRIGER UNE ENTRÉE
+   Un journal de bord se tient à la main : on écrit vite, on
+   relit au calme. La date, le lieu, le texte et le relevé se
+   reprennent tous, aussi longtemps après que l'on veut.
+   ---------------------------------------------------------- */
+
+let entreeModifiee = null;
+
+function ouvrirEdition(id){
+  entreeModifiee = id;
+  afficherJournal();
+  const art = document.querySelector(".entree.en-edition");
+  if (art) art.scrollIntoView({block:"nearest", behavior:"smooth"});
+}
+
+function enregistrerEdition(id){
+  const liste = lireJournal();
+  const e = liste.find(x => x.id === id);
+  if (e){
+    e.texte = ($("ed-texte")?.value || "").trim();
+    e.lieu  = ($("ed-lieu")?.value  || "").trim();
+    e.quand = quandDit("ed", e.quand);
+    const r = lireReleve("ed");
+    if (r) e.releve = r; else delete e.releve;
+    ecrireJournal(liste);
+  }
+  entreeModifiee = null;
+  afficherJournal();
+}
+
+// Le relevé tel qu'il se relit : des lignes nommées, puis les postes
+function blocReleve(r){
+  if (!r) return "";
+
+  const lignes = [];
+  if (r.position) lignes.push(["Position", echapperJournal(r.position)]);
+  if (r.vent && (r.vent.de || r.vent.nds != null)){
+    const v = [r.vent.de, r.vent.nds != null ? r.vent.nds + " nds" : null]
+      .filter(Boolean).join(" ");
+    if (v) lignes.push(["Vent", echapperJournal(v)]);
+  }
+  if (r.houle != null) lignes.push(["Houle", String(r.houle).replace(".", ",") + " m"]);
+
+  const pastilles = r.niveaux ? CONTROLES.map(c => {
+    const val = r.niveaux[c.cle] || "";
+    const etat = ETATS.find(x => x.val === val) || ETATS[0];
+    return `<span class="pastille-n ${val || "nc"}">${c.nom} · ${etat.dit}</span>`;
+  }).join("") : "";
+
+  if (!lignes.length && !pastilles) return "";
+  return `<div class="releve">
+      ${lignes.map(([n, v]) =>
+        `<div class="releve-ligne"><span>${n}</span><b>${v}</b></div>`).join("")}
+      ${pastilles ? `<div class="pastilles">${pastilles}</div>` : ""}
+    </div>`;
+}
+
+function carteEntree(e){
+  const d = new Date(e.quand);
+  const jour = d.toLocaleDateString("fr-FR",
+    {weekday:"long", day:"numeric", month:"long", year:"numeric"});
+  const heure = d.toLocaleTimeString("fr-FR", {hour:"2-digit", minute:"2-digit"});
+  const cond = resumeConditions(e.conditions);
+
+  const t = e.trace;
+  const nav = t ? `<div class="navigation">
+        <b>${t.milles.toFixed(1).replace(".", ",")} milles</b> ·
+        ${Math.floor(t.minutes / 60)} h ${String(t.minutes % 60).padStart(2,"0")} ·
+        moyenne ${String(t.vmoy).replace(".", ",")} nds ·
+        pointe ${String(t.vmax).replace(".", ",")} nds
+        <button class="voir-trace" data-id="${e.id}">Voir la trace →</button>
+      </div>` : "";
+
+  return `<article class="entree">
+      <div class="date">${jour} · ${heure}</div>
+      ${e.lieu ? `<div class="lieu-entree">${echapperJournal(e.lieu)}</div>` : ""}
+      ${nav}
+      ${e.texte ? `<div class="texte">${echapperJournal(e.texte)}</div>` : ""}
+      ${blocReleve(e.releve)}
+      ${cond ? `<div class="releve-jour">${cond}</div>` : ""}
+      <div class="actions-entree">
+        <button class="modifier" data-id="${e.id}">Modifier</button>
+        <button class="effacer" data-id="${e.id}">Effacer cette entrée</button>
+      </div>
+    </article>`;
+}
+
+function formulaireEdition(e){
+  return `<article class="entree en-edition">
+      <div class="date">Corriger cette entrée</div>
+      <div class="releve-champs">
+        <label>Date et heure
+          <input type="datetime-local" id="ed-quand" value="${pourChampDate(new Date(e.quand))}"></label>
+        <label>Lieu
+          <input type="text" id="ed-lieu" value="${echapperJournal(e.lieu || "")}"
+                 placeholder="Port de Sóller" autocomplete="off"></label>
+        <label>Le texte
+          <textarea id="ed-texte" rows="5"
+            placeholder="Ce que tu as fait, vu, appris.">${echapperJournal(e.texte || "")}</textarea></label>
+      </div>
+      <details class="fiche-quart"${e.releve ? " open" : ""}>
+        <summary>Relevé de quart <small>position, vent, houle, niveaux</small></summary>
+        <div class="releve-champs" id="ed-champs"></div>
+      </details>
+      <div class="edition-actions">
+        <button class="enregistrer" data-id="${e.id}">Enregistrer</button>
+        <button class="annuler">Annuler</button>
+      </div>
+    </article>`;
 }
 
 function afficherJournal(){
@@ -5281,34 +5668,32 @@ function afficherJournal(){
       (nm > 0 ? " · " + nm.toFixed(1).replace(".", ",") + " milles" : "");
   }
 
-  zone.innerHTML = liste.map(e => {
-    const d = new Date(e.quand);
-    const jour = d.toLocaleDateString("fr-FR",
-      {weekday:"long", day:"numeric", month:"long", year:"numeric"});
-    const heure = d.toLocaleTimeString("fr-FR", {hour:"2-digit", minute:"2-digit"});
-    const cond = resumeConditions(e.conditions);
+  zone.innerHTML = liste.map(e =>
+    e.id === entreeModifiee ? formulaireEdition(e) : carteEntree(e)).join("");
 
-    const t = e.trace;
-    const nav = t ? `<div class="navigation">
-        <b>${t.milles.toFixed(1).replace(".", ",")} milles</b> ·
-        ${Math.floor(t.minutes / 60)} h ${String(t.minutes % 60).padStart(2,"0")} ·
-        moyenne ${String(t.vmoy).replace(".", ",")} nds ·
-        pointe ${String(t.vmax).replace(".", ",")} nds
-        <button class="voir-trace" data-id="${e.id}">Voir la trace →</button>
-      </div>` : "";
-
-    return `<article class="entree">
-      <div class="date">${jour} · ${heure}</div>
-      ${e.lieu ? `<div class="lieu-entree">${e.lieu}</div>` : ""}
-      ${nav}
-      ${e.texte ? `<div class="texte">${e.texte.replace(/[<>&]/g, c => ({"<":"&lt;",">":"&gt;","&":"&amp;"}[c]))}</div>` : ""}
-      ${cond ? `<div class="releve-jour">${cond}</div>` : ""}
-      <button class="effacer" data-id="${e.id}">Effacer cette entrée</button>
-    </article>`;
-  }).join("");
+  // Le formulaire de correction se remplit après coup : les champs
+  // du relevé sont les mêmes que ceux de l'écriture.
+  const champsEd = $("ed-champs");
+  if (champsEd){
+    const e = liste.find(x => x.id === entreeModifiee);
+    champsEd.innerHTML = formulaireReleve("ed", e);
+    brancherReleve("ed", champsEd);
+  }
 
   zone.querySelectorAll(".effacer").forEach(b => {
     b.onclick = () => effacerEntree(+b.dataset.id);
+  });
+
+  zone.querySelectorAll(".modifier").forEach(b => {
+    b.onclick = () => ouvrirEdition(+b.dataset.id);
+  });
+
+  zone.querySelectorAll(".enregistrer").forEach(b => {
+    b.onclick = () => enregistrerEdition(+b.dataset.id);
+  });
+
+  zone.querySelectorAll(".annuler").forEach(b => {
+    b.onclick = () => { entreeModifiee = null; afficherJournal(); };
   });
 
   zone.querySelectorAll(".voir-trace").forEach(b => {
@@ -5331,6 +5716,8 @@ function preparerJournal(){
     c.textContent = r ? "Sera enregistré avec l'entrée : " + r
                       : "Les conditions du moment seront enregistrées avec l'entrée.";
   }
+
+  construireFicheQuart();
 }
 
 /* ==========================================================
@@ -5484,6 +5871,35 @@ function montrerTrace(points){
    ressemble à un vrai livre de bord.
    ========================================================== */
 
+/* Sur le papier, le relevé tient en deux lignes : les chiffres,
+   puis les postes contrôlés. Ce qui n'a pas été vérifié le dit. */
+function relevePapier(r){
+  if (!r) return "";
+
+  const bouts = [];
+  if (r.position) bouts.push("Position " + r.position);
+  if (r.vent && (r.vent.de || r.vent.nds != null)){
+    const v = [r.vent.de, r.vent.nds != null ? r.vent.nds + " nds" : null]
+      .filter(Boolean).join(" ");
+    if (v) bouts.push("Vent " + v);
+  }
+  if (r.houle != null) bouts.push("Houle " + String(r.houle).replace(".", ",") + " m");
+
+  // Sur le papier, on nomme d'abord ce qui a été vu, puis on dit
+  // en une fois ce qui ne l'a pas été.
+  const vus = [], oublies = [];
+  CONTROLES.forEach(c => {
+    const val = r.niveaux ? r.niveaux[c.cle] : "";
+    if (val) vus.push(`${c.nom} : ${(ETATS.find(x => x.val === val) || ETATS[0]).dit}`);
+    else oublies.push(c.nom.toLowerCase());
+  });
+  const postes = !vus.length ? ""
+    : vus.join(" · ") + (oublies.length ? " — non vérifiés : " + oublies.join(", ") : "");
+
+  return (bouts.length ? `<p class="releve">${echapperJournal(bouts.join(" · "))}</p>` : "") +
+         (postes ? `<p class="niveaux">${echapperJournal(postes)}</p>` : "");
+}
+
 function exporterJournal(){
   const liste = lireJournal();
   if (!liste.length) return;
@@ -5524,6 +5940,7 @@ function exporterJournal(){
       ${e.lieu ? `<p class="lieu">${echapper(e.lieu)}</p>` : ""}
       ${nav}
       ${e.texte ? `<p class="texte">${echapper(e.texte)}</p>` : ""}
+      ${relevePapier(e.releve)}
       ${cond}
     </article>`;
   }).join("");
@@ -5562,6 +5979,11 @@ function exporterJournal(){
   .nav{font-size:10.5pt;color:#0A5A9C;margin-top:6px}
   .texte{margin-top:8px;white-space:pre-wrap}
   .cond{font-size:9.5pt;color:#4B6377;margin-top:8px;font-style:italic}
+  .releve{
+    font-size:10pt;margin-top:8px;padding:6px 10px;
+    border-left:2px solid #0A5A9C;background:#F4F8FB;
+  }
+  .niveaux{font-size:9.5pt;color:#4B6377;margin-top:4px;padding-left:12px}
   footer{margin-top:26px;font-size:9pt;color:#4B6377;text-align:center}
   .taches{margin-top:26px;padding-top:16px;border-top:2px solid #12222E;break-inside:avoid}
   .taches h2{font-size:15pt;margin-bottom:10px}
@@ -5788,6 +6210,24 @@ $("rayon-alerte").oninput = e => {
 
 document.querySelectorAll(".piste").forEach(b => {
   b.onclick = () => { $("champ-chat").value = b.textContent; envoyer(); };
+});
+
+/* La date reste discrète tant qu'on ne la corrige pas : c'est
+   presque toujours maintenant. Un appui la rend modifiable. */
+$("btn-quand").onclick = () => {
+  const libre = $("quand-libre"), champ = $("fq-quand");
+  const cache = libre.classList.toggle("masque");
+  if (!cache){
+    champ.value = pourChampDate(new Date());
+    champ.dataset.auto = "1";
+    champ.addEventListener("input", () => { delete champ.dataset.auto; }, {once:true});
+    champ.focus();
+  }
+};
+
+$("fiche-quart").addEventListener("toggle", () => {
+  // À l'ouverture, on repropose ce que l'appareil sait à cet instant
+  if ($("fiche-quart").open) construireFicheQuart();
 });
 
 $("btn-journal").onclick = ajouterEntree;
