@@ -2187,6 +2187,13 @@ function suivreSonde(){
 
   minuterieSonde = setTimeout(async () => {
     const c = maCarte.getCenter();
+
+    // Le libellé porte la mention : le chiffre ne doit jamais être
+    // lu comme une hauteur d'eau là où ça marne.
+    const lab = document.querySelector(".sonde-lab");
+    if (lab) lab.textContent = zoneAMaree(c.lat, c.lng)
+      ? "Fond au centre · hors marée" : "Fond au centre";
+
     try {
       const v = await sonderPoint(c.lat, c.lng);
       const chiffre = Math.abs(v).toFixed(1).replace(".", ",");
@@ -3443,6 +3450,35 @@ async function sonderVers(p, cap, d){
   catch (e){ return null; }
 }
 
+/* ==========================================================
+   LES ZONES À MARÉE
+   ----------------------------------------------------------
+   La Méditerranée marne de vingt centimètres : la sonde y vaut
+   pour une hauteur d'eau. Partout ailleurs elle ne vaut plus
+   rien seule — cinq mètres de marnage en Loire-Atlantique font
+   d'une crique à quatre mètres un piège à basse mer.
+
+   On ne calcule pas la marée, on prévient qu'elle existe. Un
+   chiffre qu'on laisse prendre pour une hauteur d'eau est pire
+   qu'un chiffre absent.
+   ========================================================== */
+
+function enMediterranee(lat, lon){
+  if (lat === undefined || lon === undefined || lat === null || lon === null) return false;
+  if (lon < -5.6 || lon > 36.5 || lat < 30 || lat > 46) return false;
+  if (lat < 40) return true;        // du détroit au Levant
+  if (lat < 44) return lon > -0.5;  // côtes d'Espagne et golfe du Lion
+  return lon > 3;                   // Ligurie, Adriatique
+}
+
+/* Par défaut on suppose la marée : ne pas prévenir est le seul
+   vrai risque, prévenir pour rien n'en est pas un. */
+function zoneAMaree(lat, lon){
+  const p = (lat === undefined || lat === null) ? positionActuelle() : {lat, lng: lon};
+  if (!p) return false;             // sans position, on n'affirme rien
+  return !enMediterranee(p.lat, p.lng ?? p.lon);
+}
+
 /* Mètres d'eau dans l'approche — la plus faible des sondes qui
    tombent dans l'eau. null si aucune ne s'y trouve : à cette
    maille, une calanque étroite est entièrement vue comme un
@@ -3483,6 +3519,9 @@ const metresDits = v => v.toFixed(1).replace(".", ",");
 
 /* Le repli existe-t-il ? C'est toute la question quand on
    choisit un abri pour la nuit. */
+const AVIS_MAREE = "Zone à marée : ces fonds ne disent pas la hauteur d'eau de ce " +
+  "soir. L'annuaire des marées reste indispensable — mynav ne la calcule pas.";
+
 function avisSonde(liste){
   const tirant = tirantBateau();
   if (tirant === null){
@@ -3509,6 +3548,7 @@ function avisSonde(liste){
     return {ton:"alerte", texte:`${tenables[0]} est le seul des environs à annoncer ` +
       `assez d'eau pour ${t} m de tirant : aucun repli. Sonde à vérifier.`};
   }
+  if (zoneAMaree()) return {ton:"info", texte:AVIS_MAREE};
   return null;
 }
 
@@ -4316,6 +4356,12 @@ async function outilsLocaux(q){
       faits.tirant_eau_m = tirantBateau();
       faits.sonde_source = "EMODnet, maille 125 m, relevée dans l'approche de chaque abri : " +
         "indicative, toujours à vérifier sur la carte";
+      faits.zone_a_maree = zoneAMaree();
+      if (faits.zone_a_maree){
+        faits.maree_avertissement = "zone à marée : les sondes données ne tiennent " +
+          "aucun compte de la hauteur d'eau du moment, et mynav ne calcule pas la " +
+          "marée — le dire à chaque fois qu'une profondeur est évoquée";
+      }
       faits.mouillages_classes = liste.slice(0, 6).map(p => ({
         nom: p.nom,
         verdict: p.note.mot,
@@ -5216,16 +5262,21 @@ async function apercuMouillage(){
       `<br><span class="sonde-abri${p.eau === "insuffisant" ? " maigre" : ""}">` +
       (p.sonde === null
         ? "Fond non résolu ici — à vérifier"
-        : `Fond annoncé ${metresDits(p.sonde)} m dans l'approche — à vérifier`) +
+        : `Fond annoncé ${metresDits(p.sonde)} m dans l'approche — à vérifier` +
+           (zoneAMaree() ? ", hors marée" : "")) +
       (p.eau === "insuffisant" ? " · moins que ton tirant" :
        p.eau === "juste"       ? " · marge courte" : "") +
       `</span>`;
 
-    // Et le mot d'avertissement, s'il n'y a pas de repli
+    // Et les mots d'avertissement : le repli, puis la marée.
     const avis = avisSonde(liste);
     if (avis){
       $("mouillage-detail").innerHTML +=
         `<span class="avis-sonde ${avis.ton}">${avis.texte}</span>`;
+    }
+    if (zoneAMaree() && (!avis || avis.texte !== AVIS_MAREE)){
+      $("mouillage-detail").innerHTML +=
+        `<span class="avis-sonde info">${AVIS_MAREE}</span>`;
     }
 
     // La vignette prend les couleurs des trois premiers verdicts
